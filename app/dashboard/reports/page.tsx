@@ -1,37 +1,9 @@
-import { FileText, Download } from "lucide-react";
-import PageHeader from "@/components/ui/PageHeader";
-import DataTable, { Column } from "@/components/ui/DataTable";
-import { reports, Report } from "@/lib/dummy-data";
+import ReportsClient from "@/components/dashboard/ReportsClient";
+import { getOrders } from "@/lib/orders/data";
 
-const columns: Column<Report>[] = [
-  {
-    key: "name",
-    header: "Report",
-    render: (r) => (
-      <span className="flex items-center gap-2 font-medium text-brand-900">
-        <FileText size={15} className="text-brand-400" /> {r.name}
-      </span>
-    ),
-  },
-  { key: "type", header: "Type" },
-  { key: "period", header: "Period" },
-  { key: "generatedAt", header: "Generated" },
-  {
-    key: "action",
-    header: "",
-    render: () => (
-      <span className="flex items-center gap-1 text-sm font-medium text-gold-600">
-        <Download size={14} /> Download
-      </span>
-    ),
-  },
-];
+export const dynamic = "force-dynamic";
 
-export default function ReportsPage() {
-  return (
-    <div>
-      <PageHeader title="Reports" subtitle="Generated reports available for download." />
-      <DataTable columns={columns} rows={reports} />
-    </div>
-  );
+export default async function ReportsPage() {
+  const orders = await getOrders();
+  return <ReportsClient orders={orders} />;
 }

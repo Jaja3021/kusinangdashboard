@@ -25,6 +25,7 @@ export type OrderRecord = {
   eventType: string | null;
   eventDate: string | null;
   eventTime: string | null;
+  venue: string | null;
   branch: string | null;
 
   firstName: string;

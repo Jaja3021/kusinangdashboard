@@ -11,6 +11,7 @@ type OrderRow = {
   event_type: string | null;
   event_date: string | null;
   event_time: string | null;
+  venue: string | null;
   branch: string | null;
   first_name: string;
   last_name: string;
@@ -21,7 +22,7 @@ type OrderRow = {
 };
 
 const ORDER_COLUMNS =
-  "id, order_number, status, package_name, quantity_label, pax, event_type, event_date, event_time, branch, first_name, last_name, email, phone, total, created_at";
+  "id, order_number, status, package_name, quantity_label, pax, event_type, event_date, event_time, venue, branch, first_name, last_name, email, phone, total, created_at";
 
 function rowToOrder(row: OrderRow): OrderRecord {
   return {
@@ -34,6 +35,7 @@ function rowToOrder(row: OrderRow): OrderRecord {
     eventType: row.event_type,
     eventDate: row.event_date,
     eventTime: row.event_time,
+    venue: row.venue,
     branch: row.branch,
     firstName: row.first_name,
     lastName: row.last_name,

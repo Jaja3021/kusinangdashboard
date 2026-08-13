@@ -303,23 +303,6 @@ export const paymentsRefunds: PaymentRecord[] = [
   { id: "PAY-895", invoiceNo: "INV-2195", client: "Benjamin Flores", amount: 132000, method: "Bank Transfer", type: "Payment", status: "Pending", date: "Aug 1, 2026" },
 ];
 
-// ---------- Branch Performance ----------
-export type BranchPerformance = {
-  id: string;
-  branch: string;
-  revenue: number;
-  bookings: number;
-  rating: number;
-  staffCount: number;
-  growthPct: number;
-};
-
-export const branchPerformance: BranchPerformance[] = [
-  { id: "BR-QC", branch: "Quezon City", revenue: 3820000, bookings: 62, rating: 4.8, staffCount: 34, growthPct: 9.2 },
-  { id: "BR-MKT", branch: "Makati", revenue: 3200000, bookings: 41, rating: 4.9, staffCount: 28, growthPct: 15.6 },
-  { id: "BR-CEB", branch: "Cebu", revenue: 1000000, bookings: 23, rating: 4.6, staffCount: 16, growthPct: 6.1 },
-];
-
 // ---------- Reports ----------
 export type Report = {
   id: string;

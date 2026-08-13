@@ -3,7 +3,11 @@ import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge, { BadgeTone } from "@/components/ui/Badge";
 import DataTable, { Column } from "@/components/ui/DataTable";
-import { inquiries, Inquiry } from "@/lib/dummy-data";
+import { Inquiry } from "@/lib/dummy-data";
+import { getOrders } from "@/lib/orders/data";
+import { toInquiryRows } from "@/lib/orders/derived";
+
+export const dynamic = "force-dynamic";
 
 const statusTone: Record<Inquiry["status"], BadgeTone> = {
   New: "blue",
@@ -22,7 +26,10 @@ const columns: Column<Inquiry>[] = [
   { key: "status", header: "Status", render: (r) => <Badge label={r.status} tone={statusTone[r.status]} /> },
 ];
 
-export default function InquiriesPage() {
+export default async function InquiriesPage() {
+  const orders = await getOrders();
+  const inquiries = toInquiryRows(orders);
+
   const newCount = inquiries.filter((i) => i.status === "New").length;
   const inProgressCount = inquiries.filter((i) => i.status === "In Progress").length;
   const convertedCount = inquiries.filter((i) => i.status === "Converted").length;

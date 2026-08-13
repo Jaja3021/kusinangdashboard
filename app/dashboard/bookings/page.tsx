@@ -3,7 +3,11 @@ import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge, { BadgeTone } from "@/components/ui/Badge";
 import DataTable, { Column } from "@/components/ui/DataTable";
-import { bookings, Booking } from "@/lib/dummy-data";
+import { Booking } from "@/lib/dummy-data";
+import { getOrders } from "@/lib/orders/data";
+import { toBookingRows } from "@/lib/orders/derived";
+
+export const dynamic = "force-dynamic";
 
 const statusTone: Record<Booking["status"], BadgeTone> = {
   Confirmed: "green",
@@ -23,7 +27,10 @@ const columns: Column<Booking>[] = [
   { key: "status", header: "Status", render: (r) => <Badge label={r.status} tone={statusTone[r.status]} /> },
 ];
 
-export default function BookingsPage() {
+export default async function BookingsPage() {
+  const orders = await getOrders();
+  const bookings = toBookingRows(orders);
+
   const confirmed = bookings.filter((b) => b.status === "Confirmed").length;
   const pending = bookings.filter((b) => b.status === "Pending Deposit").length;
 

@@ -3,7 +3,11 @@ import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import Badge, { BadgeTone } from "@/components/ui/Badge";
 import DataTable, { Column } from "@/components/ui/DataTable";
-import { customers, Customer, formatPeso } from "@/lib/dummy-data";
+import { Customer, formatPeso } from "@/lib/dummy-data";
+import { getOrders } from "@/lib/orders/data";
+import { toCustomerRows } from "@/lib/orders/derived";
+
+export const dynamic = "force-dynamic";
 
 const tierTone: Record<Customer["tier"], BadgeTone> = {
   Platinum: "gold",
@@ -20,7 +24,10 @@ const columns: Column<Customer>[] = [
   { key: "tier", header: "Tier", render: (r) => <Badge label={r.tier} tone={tierTone[r.tier]} /> },
 ];
 
-export default function CustomersPage() {
+export default async function CustomersPage() {
+  const orders = await getOrders();
+  const customers = toCustomerRows(orders);
+
   const platinum = customers.filter((c) => c.tier === "Platinum").length;
   const repeatCustomers = customers.filter((c) => c.totalBookings > 1).length;
 
