@@ -61,3 +61,13 @@ export function branchesInScope(selected: string): Branch[] {
   const match = getBranchByName(selected);
   return match ? [match] : BRANCHES;
 }
+
+/** Real orders (id-keyed `branch`) scoped to the topbar's selected branch (name-keyed). */
+export function ordersInBranch<T extends { branch: string | null }>(
+  orders: T[],
+  selectedBranch: string,
+): T[] {
+  if (selectedBranch === ALL_BRANCHES) return orders;
+  const match = getBranchByName(selectedBranch);
+  return match ? orders.filter((o) => o.branch === match.id) : orders;
+}

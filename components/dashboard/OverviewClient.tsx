@@ -49,6 +49,13 @@ export default function OverviewClient({ todayOrders }: { todayOrders: TodayOrde
   const allBranches = selectedBranch === ALL_BRANCHES;
   const scopeNames = useMemo(() => scope.map((b) => b.name), [scope]);
 
+  // todayOrders' branch is already the display name (see lib/orders/today.ts),
+  // so this compares directly against the selector's value.
+  const scopedTodayOrders = useMemo(
+    () => (allBranches ? todayOrders : todayOrders.filter((o) => o.branch === selectedBranch)),
+    [todayOrders, allBranches, selectedBranch],
+  );
+
   // Events are scoped by event date; inquiries by when they came in.
   const byEventDate = useMemo(
     () => opportunities.filter((o) => inRange(o.eventDate, range)),
@@ -165,7 +172,7 @@ export default function OverviewClient({ todayOrders }: { todayOrders: TodayOrde
         <div onClick={() => router.push("/dashboard/orders")} className="cursor-pointer">
           <StatCard
             label="TODAY'S ORDERS"
-            value={todayOrders.length}
+            value={scopedTodayOrders.length}
             sub="Today only · live from Supabase"
             trend={0}
             icon={<ClipboardList size={18} className="text-purple-500" />}
@@ -225,7 +232,7 @@ export default function OverviewClient({ todayOrders }: { todayOrders: TodayOrde
             <div className="font-semibold text-brand-900">
               Today&apos;s Orders
               <span className="ml-2 text-xs font-normal text-gray-400">
-                {todayOrders.length} events
+                {scopedTodayOrders.length} events
               </span>
             </div>
             <button
@@ -236,7 +243,7 @@ export default function OverviewClient({ todayOrders }: { todayOrders: TodayOrde
             </button>
           </div>
 
-          {todayOrders.length > 0 ? (
+          {scopedTodayOrders.length > 0 ? (
             <ScrollX>
               <table className="w-full text-sm">
                 <thead>
@@ -249,7 +256,7 @@ export default function OverviewClient({ todayOrders }: { todayOrders: TodayOrde
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {todayOrders.map((order) => (
+                  {scopedTodayOrders.map((order) => (
                     <tr key={order.id}>
                       <td className="py-2.5">
                         <div className="text-sm font-medium text-gray-900">

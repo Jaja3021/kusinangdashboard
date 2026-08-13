@@ -8,12 +8,17 @@ import { SyncProvider } from "@/components/providers/SyncProvider";
 import MobileNav from "@/components/shell/MobileNav";
 import Sidebar from "@/components/shell/Sidebar";
 import Topbar from "@/components/shell/Topbar";
+import { getOrders } from "@/lib/orders/data";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
   // Middleware already gates /dashboard, but re-check here in case the
   // account was suspended after the session cookie was issued.
   if (!user) redirect("/login");
+
+  // Fetched here (separately from each page's own getOrders() call) purely
+  // to give the topbar search real orders to search over.
+  const orders = await getOrders();
 
   return (
     <AuthProvider user={user}>
@@ -23,7 +28,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             <div className="flex h-screen overflow-hidden bg-gray-50">
               <Sidebar />
               <div className="flex min-w-0 flex-1 flex-col">
-                <Topbar />
+                <Topbar orders={orders} />
                 {/* pb-20 on mobile clears the fixed bottom tab bar. */}
                 <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-5 md:pb-5">
                   {children}

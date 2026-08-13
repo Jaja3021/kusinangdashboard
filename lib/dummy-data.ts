@@ -13,6 +13,7 @@ export type Inquiry = {
   phone: string;
   status: "New" | "In Progress" | "Converted" | "Lost";
   receivedAt: string;
+  branch?: string;
 };
 
 export const inquiries: Inquiry[] = [

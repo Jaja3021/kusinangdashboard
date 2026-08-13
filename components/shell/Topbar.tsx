@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Search, Wifi, Zap } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { useSync } from "@/components/providers/SyncProvider";
-import { opportunities } from "@/lib/mt/opportunities";
-import { search, type SearchResult } from "@/lib/mt/search";
+import { search, type SearchResult } from "@/lib/orders/search";
+import type { OrderRecord } from "@/lib/orders/types";
 import BranchSelector from "./BranchSelector";
 import DateRangePicker from "./DateRangePicker";
 import NotificationsMenu from "./NotificationsMenu";
@@ -41,7 +41,7 @@ function ResultRow({
   );
 }
 
-export default function Topbar() {
+export default function Topbar({ orders }: { orders: OrderRecord[] }) {
   const router = useRouter();
   const { lastUpdated, loading } = useSync();
 
@@ -53,7 +53,7 @@ export default function Topbar() {
     setDesktopOpen(false),
   );
 
-  const results = useMemo(() => search(opportunities, term), [term]);
+  const results = useMemo(() => search(orders, term), [orders, term]);
 
   function pick(result: SearchResult) {
     router.push(result.path);

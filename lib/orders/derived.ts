@@ -47,6 +47,8 @@ const INQUIRY_STATUS: Record<OrderStatus, Inquiry["status"]> = {
   "Pending Confirmation": "New",
   Confirmed: "In Progress",
   Preparing: "In Progress",
+  Cooking: "In Progress",
+  "Ready for Delivery": "In Progress",
   Completed: "Converted",
   Cancelled: "Lost",
 };
@@ -55,6 +57,8 @@ const BOOKING_STATUS: Record<OrderStatus, Booking["status"]> = {
   "Pending Confirmation": "Pending Deposit",
   Confirmed: "Confirmed",
   Preparing: "Confirmed",
+  Cooking: "Confirmed",
+  "Ready for Delivery": "Confirmed",
   Completed: "Completed",
   Cancelled: "Cancelled",
 };
@@ -69,6 +73,7 @@ export function toInquiryRows(orders: OrderRecord[]): Inquiry[] {
     phone: o.phone,
     status: INQUIRY_STATUS[o.status],
     receivedAt: formatDateTime(o.createdAt),
+    branch: (o.branch && getBranchById(o.branch)?.name) || o.branch || "—",
   }));
 }
 

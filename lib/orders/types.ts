@@ -3,12 +3,21 @@
 // status. Only the fields this dashboard displays are kept; herbies' full
 // OrderRecord also carries menu/cart JSONB snapshots this app never renders.
 
-export type OrderStatus = "Pending Confirmation" | "Confirmed" | "Preparing" | "Completed" | "Cancelled";
+export type OrderStatus =
+  | "Pending Confirmation"
+  | "Confirmed"
+  | "Preparing"
+  | "Cooking"
+  | "Ready for Delivery"
+  | "Completed"
+  | "Cancelled";
 
 export const ORDER_STATUSES: OrderStatus[] = [
   "Pending Confirmation",
   "Confirmed",
   "Preparing",
+  "Cooking",
+  "Ready for Delivery",
   "Completed",
   "Cancelled",
 ];

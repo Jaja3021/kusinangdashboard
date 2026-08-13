@@ -16,7 +16,13 @@ const MONTH_LABELS = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
-const BOOKED_STATUSES = new Set<OrderStatus>(["Confirmed", "Preparing", "Completed"]);
+const BOOKED_STATUSES = new Set<OrderStatus>([
+  "Confirmed",
+  "Preparing",
+  "Cooking",
+  "Ready for Delivery",
+  "Completed",
+]);
 
 type DummyMonth = {
   monthKey: string; // "YYYY-MM"

@@ -45,6 +45,8 @@ const STATUS_STYLES: Record<string, string> = {
   "Pending Confirmation": "bg-gold-500/10 text-gold-600",
   Active: "bg-emerald-100 text-emerald-700",
   Preparing: "bg-blue-100 text-blue-700",
+  Cooking: "bg-orange-100 text-orange-700",
+  "Ready for Delivery": "bg-purple-100 text-purple-700",
   "Out for Delivery": "bg-purple-100 text-purple-700",
   "Setup Ongoing": "bg-yellow-100 text-yellow-700",
   "For Preparation": "bg-indigo-100 text-indigo-700",
