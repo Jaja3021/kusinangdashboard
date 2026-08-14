@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ListOrdered, ChevronDown } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import Modal from "@/components/ui/Modal";
 import ScrollX from "@/components/ui/ScrollX";
+import DishSlotsModal from "@/components/dashboard/DishSlotsModal";
 import { formatPeso } from "@/lib/format";
 import {
   createPackageAction,
@@ -27,6 +28,7 @@ import {
   isTrayCartPackage,
   isPackedMealPackage,
   isHeadCountPackage,
+  packageBasePriceInfo,
   TRAY_CATEGORIES,
   TRAY_SIZES,
   PACKED_MEAL_CATEGORIES,
@@ -102,6 +104,7 @@ export default function MenuClient({ packages: initialPackages }: { packages: Pa
 
   const [dishModal, setDishModal] = useState<{ packageSlug: string; dish?: TrayDish } | null>(null);
   const [pmModal, setPmModal] = useState<{ packageSlug: string; category?: PackedMealCategory } | null>(null);
+  const [dishSlotsModal, setDishSlotsModal] = useState<PackageType | null>(null);
 
   function upsertLocal(updated: PackageType): PackageType {
     setPackages((prev) => {
@@ -121,26 +124,12 @@ export default function MenuClient({ packages: initialPackages }: { packages: Pa
     setPackageModal({ mode: "edit", item: pkg });
   }
 
-  async function toggleRecommended(pkg: PackageType) {
-    const input: PackageDetailsInput = {
-      name: pkg.name,
-      category: pkg.category,
-      description: pkg.description,
-      recommended: !pkg.recommended,
-      branch: pkg.branch ?? null,
-      inclusions: pkg.inclusions,
-      addOns: pkg.addOns,
-      ...(isHeadCountPackage(pkg)
-        ? { pricePerHead: pkg.pricePerHead ?? 0, minimumHeadCount: pkg.minimumHeadCount ?? 1 }
-        : {}),
-    };
-    const updated = await updatePackageDetailsAction(pkg.slug, input);
-    upsertLocal(updated);
-  }
-
   async function toggleActive(pkg: PackageType) {
     const updated = await setPackageActiveAction(pkg.slug, !pkg.active);
     upsertLocal(updated);
+    // Keep the edit modal's own Active switch in sync when toggled from
+    // inside that modal — upsertLocal only touches the table's copy.
+    setPackageModal((prev) => (prev?.mode === "edit" && prev.item?.slug === updated.slug ? { mode: "edit", item: updated } : prev));
   }
 
   async function removePackage(pkg: PackageType) {
@@ -165,11 +154,25 @@ export default function MenuClient({ packages: initialPackages }: { packages: Pa
           inclusions: fdLines(data, "inclusions"),
           addOns: fdLines(data, "addOns"),
         };
+        const quickEditsTier =
+          !isHeadCountPackage(item) && !isTrayCartPackage(item) && !isPackedMealPackage(item)
+            ? item.paxTiers.slice().sort((a, b) => a.pax - b.pax)[0]
+            : undefined;
         if (isHeadCountPackage(item)) {
           input.pricePerHead = fdNum(data, "pricePerHead");
           input.minimumHeadCount = fdNum(data, "minimumHeadCount");
         }
-        const updated = await updatePackageDetailsAction(item.slug, input);
+        let updated = await updatePackageDetailsAction(item.slug, input);
+        // Base Price / PAX Label are a quick-edit shortcut for the first pax
+        // tier — the full tier list (add/remove tiers, per-tier pricing) still
+        // lives in the "More details" pax-tier editor below.
+        if (quickEditsTier) {
+          updated = await savePaxTierAction(item.slug, {
+            ...quickEditsTier,
+            paxLabel: fd(data, "paxLabel") || undefined,
+            menus: [{ ...quickEditsTier.menus[0], price: fdNum(data, "basePrice") }],
+          });
+        }
         upsertLocal(updated);
         setPackageModal({ mode: "edit", item: updated });
       } else {
@@ -286,6 +289,14 @@ export default function MenuClient({ packages: initialPackages }: { packages: Pa
 
   const editItem = packageModal?.mode === "edit" ? packageModal.item : undefined;
   const shapeForModal = editItem ? packageShape(editItem) : addShape;
+  // The first pax tier, quick-editable via the top-level Base Price / PAX
+  // Label fields — only for shapes that price off a single tier. Tray-cart
+  // and packed-meal packages price per dish (Dishes / Packed Meals tabs);
+  // head-count packages use pricePerHead/minimumHeadCount instead.
+  const quickEditTier =
+    editItem && shapeForModal !== "head-count" && shapeForModal !== "tray-cart" && shapeForModal !== "packed-meal"
+      ? editItem.paxTiers.slice().sort((a, b) => a.pax - b.pax)[0]
+      : undefined;
 
   const trayPackages = packages.filter(isTrayCartPackage);
   const packedPackages = packages.filter(isPackedMealPackage);
@@ -298,11 +309,11 @@ export default function MenuClient({ packages: initialPackages }: { packages: Pa
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Package</th>
-                <th className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Category</th>
-                <th className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Shape</th>
+                <th className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Pax</th>
+                <th className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Base Price</th>
+                <th className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Group</th>
                 <th className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Branch</th>
-                <th className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Recommended</th>
-                <th className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                <th className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Active</th>
                 <th className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Actions</th>
               </tr>
             </thead>
@@ -314,58 +325,58 @@ export default function MenuClient({ packages: initialPackages }: { packages: Pa
                   </td>
                 </tr>
               )}
-              {rows.map((row) => (
-                <tr key={row.slug} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                  <td className="px-5 py-3.5">
-                    <p className="font-medium text-brand-900">{row.name}</p>
-                    <p className="text-xs text-slate-400">{row.slug}</p>
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3.5 text-slate-700">{row.category}</td>
-                  <td className="whitespace-nowrap px-5 py-3.5 text-slate-700">{SHAPE_LABELS[packageShape(row)]}</td>
-                  <td className="whitespace-nowrap px-5 py-3.5 text-slate-700">{branchesLabel(row.branch)}</td>
-                  <td className="whitespace-nowrap px-5 py-3.5">
-                    <button
-                      type="button"
-                      onClick={() => toggleRecommended(row)}
-                      aria-pressed={row.recommended}
-                      aria-label={row.recommended ? "Unmark recommended" : "Mark recommended"}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                        row.recommended ? "bg-emerald-500" : "bg-gray-300"
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                          row.recommended ? "translate-x-[18px]" : "translate-x-[2px]"
+              {rows.map((row) => {
+                const { paxLabel, price } = packageBasePriceInfo(row);
+                return (
+                  <tr key={row.slug} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                    <td className="px-5 py-3.5">
+                      <p className="font-medium text-brand-900">{row.name}</p>
+                      <p className="text-xs text-slate-400">{row.slug}</p>
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-3.5 text-slate-700">{paxLabel}</td>
+                    <td className="whitespace-nowrap px-5 py-3.5 text-slate-700">{price != null ? formatPeso(price) : "—"}</td>
+                    <td className="whitespace-nowrap px-5 py-3.5 text-slate-700">{row.category}</td>
+                    <td className="whitespace-nowrap px-5 py-3.5 text-slate-700">{branchesLabel(row.branch)}</td>
+                    <td className="whitespace-nowrap px-5 py-3.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleActive(row)}
+                        aria-pressed={row.active}
+                        aria-label={row.active ? "Hide from storefront" : "Show on storefront"}
+                        title={row.active ? "Visible on the storefront — click to hide" : "Hidden from the storefront — click to show"}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                          row.active ? "bg-emerald-500" : "bg-gray-300"
                         }`}
-                      />
-                    </button>
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3.5">
-                    <button
-                      type="button"
-                      onClick={() => toggleActive(row)}
-                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
-                        row.active
-                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                          : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                      }`}
-                      title={row.active ? "Visible on the storefront — click to hide" : "Hidden from the storefront — click to show"}
-                    >
-                      {row.active ? "Active" : "Inactive"}
-                    </button>
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3.5">
-                    <div className="flex items-center gap-3 text-slate-400">
-                      <button type="button" onClick={() => openEdit(row)} aria-label="Edit" className="transition-colors hover:text-brand-700">
-                        <Pencil size={16} />
+                      >
+                        <span
+                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                            row.active ? "translate-x-[18px]" : "translate-x-[2px]"
+                          }`}
+                        />
                       </button>
-                      <button type="button" onClick={() => removePackage(row)} aria-label="Delete" className="transition-colors hover:text-red-600">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-3.5">
+                      <div className="flex items-center gap-3 text-slate-400">
+                        <button
+                          type="button"
+                          onClick={() => setDishSlotsModal(row)}
+                          aria-label="Dish Slots"
+                          title="Dish Slots"
+                          className="transition-colors hover:text-brand-700"
+                        >
+                          <ListOrdered size={16} />
+                        </button>
+                        <button type="button" onClick={() => openEdit(row)} aria-label="Edit" className="transition-colors hover:text-brand-700">
+                          <Pencil size={16} />
+                        </button>
+                        <button type="button" onClick={() => removePackage(row)} aria-label="Delete" className="transition-colors hover:text-red-600">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </ScrollX>
@@ -620,7 +631,7 @@ export default function MenuClient({ packages: initialPackages }: { packages: Pa
               </label>
             )}
             <label className="text-sm">
-              <span className={labelClass}>Category</span>
+              <span className={labelClass}>Group</span>
               <select
                 key={editItem ? "edit" : addShape}
                 name="category"
@@ -638,22 +649,38 @@ export default function MenuClient({ packages: initialPackages }: { packages: Pa
           </div>
 
           <label className="block text-sm">
-            <span className={labelClass}>Name</span>
+            <span className={labelClass}>Package Name</span>
             <input name="name" required defaultValue={editItem?.name} className={inputClass} />
           </label>
 
-          <label className="block text-sm">
-            <span className={labelClass}>Description</span>
-            <textarea name="description" required rows={2} defaultValue={editItem?.description} className={inputClass} />
-          </label>
-
-          <label className="flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" name="recommended" defaultChecked={editItem?.recommended} className="h-4 w-4 rounded border-gray-300 text-brand-700 focus:ring-brand-500" />
-            Mark as Recommended
-          </label>
+          {shapeForModal === "head-count" ? (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-sm">
+                <span className={labelClass}>Price per head (₱)</span>
+                <input type="number" name="pricePerHead" required min={0} defaultValue={editItem?.pricePerHead ?? ""} className={inputClass} />
+              </label>
+              <label className="text-sm">
+                <span className={labelClass}>Minimum head count</span>
+                <input type="number" name="minimumHeadCount" required min={1} defaultValue={editItem?.minimumHeadCount ?? ""} className={inputClass} />
+              </label>
+            </div>
+          ) : (
+            quickEditTier && (
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-sm">
+                  <span className={labelClass}>Base Price (₱)</span>
+                  <input type="number" name="basePrice" min={0} defaultValue={quickEditTier.menus[0]?.price ?? ""} className={inputClass} />
+                </label>
+                <label className="text-sm">
+                  <span className={labelClass}>PAX Label</span>
+                  <input name="paxLabel" defaultValue={quickEditTier.paxLabel ?? `${quickEditTier.pax} pax`} className={inputClass} />
+                </label>
+              </div>
+            )
+          )}
 
           <div>
-            <p className={labelClass}>Branches (none checked = all branches)</p>
+            <p className={labelClass}>Branch</p>
             <div className="flex flex-wrap gap-4">
               {PACKAGE_BRANCHES.map((b) => (
                 <label key={b.id} className="flex items-center gap-2 text-sm text-slate-600">
@@ -667,101 +694,131 @@ export default function MenuClient({ packages: initialPackages }: { packages: Pa
                   {b.name}
                 </label>
               ))}
+              <span className="text-xs text-slate-400">(none checked = all branches)</span>
             </div>
           </div>
 
-          {shapeForModal === "head-count" && (
-            <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
-              <label className="text-sm">
-                <span className={labelClass}>Price per head (₱)</span>
-                <input type="number" name="pricePerHead" required min={0} defaultValue={editItem?.pricePerHead ?? ""} className={inputClass} />
-              </label>
-              <label className="text-sm">
-                <span className={labelClass}>Minimum head count</span>
-                <input type="number" name="minimumHeadCount" required min={1} defaultValue={editItem?.minimumHeadCount ?? ""} className={inputClass} />
-              </label>
+          {editItem && (
+            <div className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2">
+              <span className="text-sm font-medium text-slate-600">Active</span>
+              <button
+                type="button"
+                onClick={() => toggleActive(editItem)}
+                aria-pressed={editItem.active}
+                aria-label={editItem.active ? "Hide from storefront" : "Show on storefront"}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  editItem.active ? "bg-emerald-500" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                    editItem.active ? "translate-x-[18px]" : "translate-x-[2px]"
+                  }`}
+                />
+              </button>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
-            <label className="text-sm">
-              <span className={labelClass}>Inclusions (one per line)</span>
-              <textarea name="inclusions" rows={3} defaultValue={editItem?.inclusions.join("\n")} className={inputClass} />
-            </label>
-            <label className="text-sm">
-              <span className={labelClass}>Add-ons (one per line)</span>
-              <textarea name="addOns" rows={3} defaultValue={editItem?.addOns.join("\n")} className={inputClass} />
-            </label>
-          </div>
+          {/* Open by default when creating a package — Description is required
+             and a collapsed <details> would hide that from a first-time fill. */}
+          <details className="group border-t border-gray-100 pt-4" open={!editItem}>
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-brand-700">
+              <ChevronDown size={14} className="transition-transform group-open:rotate-180" />
+              More details
+            </summary>
 
-          {editItem && (isTrayCartPackage(editItem) || isPackedMealPackage(editItem)) && (
-            <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-slate-500">
-              {isTrayCartPackage(editItem)
-                ? "Tray dishes for this package are managed on the Dishes tab."
-                : "Packed-meal categories for this package are managed on the Packed Meals tab."}
-            </p>
-          )}
+            <div className="mt-4 space-y-4">
+              <label className="block text-sm">
+                <span className={labelClass}>Description</span>
+                <textarea name="description" required rows={2} defaultValue={editItem?.description} className={inputClass} />
+              </label>
 
-          {editItem && !isTrayCartPackage(editItem) && !isPackedMealPackage(editItem) && !isHeadCountPackage(editItem) && (
-            <div className="border-t border-gray-100 pt-4">
-              <p className={labelClass}>Pax Tiers</p>
-              {editItem.paxTiers.length === 0 && <p className="text-sm text-slate-400">No pax tiers yet — add one below.</p>}
-              <ul className="divide-y divide-gray-100">
-                {editItem.paxTiers
-                  .slice()
-                  .sort((a, b) => a.pax - b.pax)
-                  .map((tier) => (
-                    <li key={tier.pax} className="py-2">
-                      <form onSubmit={(e) => handleTierSubmit(e, editItem.slug)} className="flex flex-wrap items-end gap-2">
-                        <label className="text-xs text-slate-500">
-                          Pax
-                          <input type="number" name="pax" required min={1} defaultValue={tier.pax} className={`${smallInputClass} w-16`} />
-                        </label>
-                        <label className="text-xs text-slate-500">
-                          Label
-                          <input name="paxLabel" defaultValue={tier.paxLabel} className={`${smallInputClass} w-24`} />
-                        </label>
-                        <label className="text-xs text-slate-500">
-                          Menu name
-                          <input name="menuName" defaultValue={tier.menus[0]?.name ?? "Full Spread"} className={`${smallInputClass} w-28`} />
-                        </label>
-                        <label className="text-xs text-slate-500">
-                          Price (₱)
-                          <input type="number" name="price" required min={0} defaultValue={tier.menus[0]?.price} className={`${smallInputClass} w-24`} />
-                        </label>
-                        <button type="submit" className={smallSubmitClass}>
-                          Save
-                        </button>
-                        <button type="button" onClick={() => handleTierDelete(editItem.slug, tier.pax)} className={dangerButtonClass}>
-                          Remove
-                        </button>
-                      </form>
-                    </li>
-                  ))}
-              </ul>
-              <form onSubmit={(e) => handleTierSubmit(e, editItem.slug)} className="mt-3 flex flex-wrap items-end gap-2 border-t border-gray-100 pt-3">
-                <label className="text-xs text-slate-500">
-                  Pax
-                  <input type="number" name="pax" required min={1} className={`${smallInputClass} w-16`} />
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" name="recommended" defaultChecked={editItem?.recommended} className="h-4 w-4 rounded border-gray-300 text-brand-700 focus:ring-brand-500" />
+                Mark as Recommended
+              </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-sm">
+                  <span className={labelClass}>Inclusions (one per line)</span>
+                  <textarea name="inclusions" rows={3} defaultValue={editItem?.inclusions.join("\n")} className={inputClass} />
                 </label>
-                <label className="text-xs text-slate-500">
-                  Label
-                  <input name="paxLabel" placeholder="e.g. 15-25" className={`${smallInputClass} w-24`} />
+                <label className="text-sm">
+                  <span className={labelClass}>Add-ons (one per line)</span>
+                  <textarea name="addOns" rows={3} defaultValue={editItem?.addOns.join("\n")} className={inputClass} />
                 </label>
-                <label className="text-xs text-slate-500">
-                  Menu name
-                  <input name="menuName" placeholder="Full Spread" className={`${smallInputClass} w-28`} />
-                </label>
-                <label className="text-xs text-slate-500">
-                  Price (₱)
-                  <input type="number" name="price" required min={0} className={`${smallInputClass} w-24`} />
-                </label>
-                <button type="submit" className="rounded-lg bg-gold-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gold-600">
-                  + Add Tier
-                </button>
-              </form>
+              </div>
+
+              {editItem && (isTrayCartPackage(editItem) || isPackedMealPackage(editItem)) && (
+                <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-slate-500">
+                  {isTrayCartPackage(editItem)
+                    ? "Tray dishes for this package are managed on the Dishes tab."
+                    : "Packed-meal categories for this package are managed on the Packed Meals tab."}
+                </p>
+              )}
+
+              {editItem && !isTrayCartPackage(editItem) && !isPackedMealPackage(editItem) && !isHeadCountPackage(editItem) && (
+                <div className="border-t border-gray-100 pt-4">
+                  <p className={labelClass}>Pax Tiers</p>
+                  {editItem.paxTiers.length === 0 && <p className="text-sm text-slate-400">No pax tiers yet — add one below.</p>}
+                  <ul className="divide-y divide-gray-100">
+                    {editItem.paxTiers
+                      .slice()
+                      .sort((a, b) => a.pax - b.pax)
+                      .map((tier) => (
+                        <li key={tier.pax} className="py-2">
+                          <form onSubmit={(e) => handleTierSubmit(e, editItem.slug)} className="flex flex-wrap items-end gap-2">
+                            <label className="text-xs text-slate-500">
+                              Pax
+                              <input type="number" name="pax" required min={1} defaultValue={tier.pax} className={`${smallInputClass} w-16`} />
+                            </label>
+                            <label className="text-xs text-slate-500">
+                              Label
+                              <input name="paxLabel" defaultValue={tier.paxLabel} className={`${smallInputClass} w-24`} />
+                            </label>
+                            <label className="text-xs text-slate-500">
+                              Menu name
+                              <input name="menuName" defaultValue={tier.menus[0]?.name ?? "Full Spread"} className={`${smallInputClass} w-28`} />
+                            </label>
+                            <label className="text-xs text-slate-500">
+                              Price (₱)
+                              <input type="number" name="price" required min={0} defaultValue={tier.menus[0]?.price} className={`${smallInputClass} w-24`} />
+                            </label>
+                            <button type="submit" className={smallSubmitClass}>
+                              Save
+                            </button>
+                            <button type="button" onClick={() => handleTierDelete(editItem.slug, tier.pax)} className={dangerButtonClass}>
+                              Remove
+                            </button>
+                          </form>
+                        </li>
+                      ))}
+                  </ul>
+                  <form onSubmit={(e) => handleTierSubmit(e, editItem.slug)} className="mt-3 flex flex-wrap items-end gap-2 border-t border-gray-100 pt-3">
+                    <label className="text-xs text-slate-500">
+                      Pax
+                      <input type="number" name="pax" required min={1} className={`${smallInputClass} w-16`} />
+                    </label>
+                    <label className="text-xs text-slate-500">
+                      Label
+                      <input name="paxLabel" placeholder="e.g. 15-25" className={`${smallInputClass} w-24`} />
+                    </label>
+                    <label className="text-xs text-slate-500">
+                      Menu name
+                      <input name="menuName" placeholder="Full Spread" className={`${smallInputClass} w-28`} />
+                    </label>
+                    <label className="text-xs text-slate-500">
+                      Price (₱)
+                      <input type="number" name="price" required min={0} className={`${smallInputClass} w-24`} />
+                    </label>
+                    <button type="submit" className="rounded-lg bg-gold-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gold-600">
+                      + Add Tier
+                    </button>
+                  </form>
+                </div>
+              )}
             </div>
-          )}
+          </details>
 
           <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
             <button type="button" onClick={() => setPackageModal(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-gray-100">
@@ -912,6 +969,17 @@ export default function MenuClient({ packages: initialPackages }: { packages: Pa
           </form>
         )}
       </Modal>
+
+      <DishSlotsModal
+        isOpen={dishSlotsModal !== null}
+        onClose={() => setDishSlotsModal(null)}
+        pkg={dishSlotsModal}
+        allPackages={packages}
+        onSaved={(updated) => {
+          upsertLocal(updated);
+          setDishSlotsModal(updated);
+        }}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import type {
   TrayDish,
   PackedMealCategoryInfo,
   PackageShape,
+  DishSlot,
 } from "./types";
 
 type PackageRow = {
@@ -25,10 +26,11 @@ type PackageRow = {
   packed_meal_catalog: PackedMealCategoryInfo[] | null;
   branch: string[] | null;
   active: boolean | null;
+  dish_slots: DishSlot[] | null;
 };
 
 const COLUMNS =
-  "slug, name, category, description, recommended, pax_tiers, inclusions, add_ons, price_per_head, minimum_head_count, tray_catalog, packed_meal_catalog, branch, active";
+  "slug, name, category, description, recommended, pax_tiers, inclusions, add_ons, price_per_head, minimum_head_count, tray_catalog, packed_meal_catalog, branch, active, dish_slots";
 
 function rowToPackage(row: PackageRow): PackageType {
   return {
@@ -48,6 +50,9 @@ function rowToPackage(row: PackageRow): PackageType {
     // Defaults true for any row read before menu_orders_v2.sql (herbies
     // project) has added the column.
     active: row.active ?? true,
+    // Defaults [] for any row read before menu_dish_slots.sql has added
+    // the column.
+    dishSlots: row.dish_slots ?? [],
   };
 }
 
@@ -102,6 +107,7 @@ export async function createPackage(input: NewPackageInput): Promise<PackageType
     tray_catalog: null,
     packed_meal_catalog: null,
     active: true,
+    dish_slots: [],
   };
 
   if (input.shape === "head-count") {
@@ -262,5 +268,21 @@ export async function deletePackedMealCategory(packageSlug: string, category: st
     .select(COLUMNS)
     .single();
   if (error) throw new Error(`Failed to delete packed-meal category: ${error.message}`);
+  return rowToPackage(data as PackageRow);
+}
+
+// Whole-array write — the Dish Slots modal edits the full ordered list
+// client-side (add/reorder/remove) and saves it in one call, same pattern
+// as savePaxTierAction's individual upserts but scoped to the whole list
+// since slot order/position is part of what's being edited.
+export async function saveDishSlots(packageSlug: string, slots: DishSlot[]): Promise<PackageType> {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("packages")
+    .update({ dish_slots: slots })
+    .eq("slug", packageSlug)
+    .select(COLUMNS)
+    .single();
+  if (error) throw new Error(`Failed to save dish slots: ${error.message}`);
   return rowToPackage(data as PackageRow);
 }

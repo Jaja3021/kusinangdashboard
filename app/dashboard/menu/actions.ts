@@ -12,10 +12,11 @@ import {
   deleteTrayDish,
   upsertPackedMealCategory,
   deletePackedMealCategory,
+  saveDishSlots,
   type NewPackageInput,
   type PackageDetailsInput,
 } from "@/lib/menu/data";
-import type { PackageType, PaxTier, TrayDish, PackedMealCategoryInfo } from "@/lib/menu/types";
+import type { PackageType, PaxTier, TrayDish, PackedMealCategoryInfo, DishSlot } from "@/lib/menu/types";
 
 // RLS ("Authenticated insert/update/delete") on public.packages is the real
 // authorization boundary — a non-admin's write simply fails. This table is
@@ -79,6 +80,12 @@ export async function savePackedMealCategoryAction(
 
 export async function deletePackedMealCategoryAction(packageSlug: string, category: string): Promise<PackageType> {
   const updated = await deletePackedMealCategory(packageSlug, category);
+  revalidatePath("/dashboard/menu");
+  return updated;
+}
+
+export async function saveDishSlotsAction(packageSlug: string, slots: DishSlot[]): Promise<PackageType> {
+  const updated = await saveDishSlots(packageSlug, slots);
   revalidatePath("/dashboard/menu");
   return updated;
 }

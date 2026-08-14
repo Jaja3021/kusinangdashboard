@@ -62,6 +62,46 @@ export type PackedMealCategoryInfo = {
   tiers: PackedMealQtyTier[];
 };
 
+// A dish slot is one line of a combo — which category, which dish fills it,
+// what tray size/quantity, and whether the customer may swap it for another
+// dish in that category. Mirrors supabase/menu_dish_slots.sql's dish_slots
+// JSONB column (this dashboard project, not herbies — herbies' storefront
+// doesn't read or render these yet).
+export const DISH_SLOT_CATEGORIES = [
+  "Beef",
+  "Chicken",
+  "Seafood",
+  "Pork",
+  "Vegetable",
+  "Pasta",
+  "Dessert",
+  "Rice",
+] as const;
+export type DishSlotCategory = (typeof DISH_SLOT_CATEGORIES)[number];
+
+export type DishSlot = {
+  id: string;
+  category: DishSlotCategory;
+  dish: string;
+  traySize: TraySize;
+  quantity: number;
+  swappable: boolean;
+};
+
+// Tailwind classes for each category's chip, keyed the same way branch
+// badges are in lib/mt/branches.ts — one lookup, reused everywhere a slot's
+// category needs a colour.
+export const SLOT_CATEGORY_CHIP: Record<DishSlotCategory, string> = {
+  Beef: "bg-red-100 text-red-700",
+  Chicken: "bg-amber-100 text-amber-700",
+  Seafood: "bg-sky-100 text-sky-700",
+  Pork: "bg-rose-100 text-rose-700",
+  Vegetable: "bg-emerald-100 text-emerald-700",
+  Pasta: "bg-orange-100 text-orange-700",
+  Dessert: "bg-purple-100 text-purple-700",
+  Rice: "bg-slate-100 text-slate-700",
+};
+
 export type PackageType = {
   slug: string;
   name: string;
@@ -82,6 +122,8 @@ export type PackageType = {
   // the row being deleted. Mirrors public.packages.active
   // (supabase/menu_orders_v2.sql, in the herbies project).
   active: boolean;
+  // What the combo is actually made of. See supabase/menu_dish_slots.sql.
+  dishSlots: DishSlot[];
 };
 
 export function isTrayCartPackage(pkg: PackageType): boolean {
@@ -149,4 +191,20 @@ export const PACKAGE_BRANCHES: PackageBranch[] = [
 
 export function branchLabel(id: string): string {
   return PACKAGE_BRANCHES.find((b) => b.id === id)?.name ?? id;
+}
+
+// The pax/price the Packages table and Dish Slots modal both show as a
+// package's headline numbers. For pax-tiered/fixed-menu packages that's the
+// lowest tier; for head-count it's the per-head rate; tray-cart and
+// packed-meal packages price per dish, so there's no single number to show.
+export function packageBasePriceInfo(pkg: PackageType): { paxLabel: string; price: number | null } {
+  if (isHeadCountPackage(pkg)) {
+    return { paxLabel: pkg.minimumHeadCount ? `${pkg.minimumHeadCount}+ pax` : "—", price: pkg.pricePerHead ?? 0 };
+  }
+  if (isTrayCartPackage(pkg) || isPackedMealPackage(pkg)) {
+    return { paxLabel: "—", price: null };
+  }
+  const tier = pkg.paxTiers.slice().sort((a, b) => a.pax - b.pax)[0];
+  if (!tier) return { paxLabel: "—", price: null };
+  return { paxLabel: tier.paxLabel ?? `${tier.pax} pax`, price: tier.menus[0]?.price ?? 0 };
 }
