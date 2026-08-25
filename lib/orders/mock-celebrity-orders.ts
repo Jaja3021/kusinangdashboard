@@ -45,8 +45,8 @@ const TODAY = todayManila();
 const REPEAT_BOOKERS = new Set(["Anne Curtis", "Dingdong Dantes"]);
 
 const EVENT_TYPES = [
-  "Wedding Reception", "Birthday Party", "Corporate Gala", "Anniversary",
-  "Debut", "Christmas Party", "Product Launch", "Charity Gala",
+  "Wedding Package", "Kids Party Package", "Debut Package",
+  "Corporate Event", "Private Event", "Tray Orders",
 ];
 
 const EVENT_TIMES = ["11:00 AM", "12:00 PM", "1:00 PM", "5:00 PM", "6:00 PM", "6:30 PM", "7:00 PM"];
@@ -247,4 +247,34 @@ export function buildMockCelebrityOrders(packages: PackageType[]): OrderRecord[]
 
 export function isMockOrder(order: Pick<OrderRecord, "id">): boolean {
   return order.id.startsWith("MOCK-ORD-");
+}
+
+// A handful of walk-in clients forced onto TODAY's date specifically —
+// separate from the year-long celebrity spread above (which almost never
+// lands anything on "today") so the Overview page's "Today's Orders" widget
+// and the Payments dashboard (lib/payments/mock-payments.ts consumes these
+// same records, filtered to whichever of these are "Confirmed") always have
+// something to show in a fresh environment. Index-offset by 9000 so ids
+// never collide with buildMockCelebrityOrders'.
+const TODAY_WALKIN_CLIENTS: { first: string; last: string; status: OrderStatus }[] = [
+  { first: "Ramon", last: "Aviles", status: "Confirmed" },
+  { first: "Ligaya", last: "Santos", status: "Confirmed" },
+  { first: "Bettina", last: "Cruz", status: "Confirmed" },
+  { first: "Marcelo", last: "Reyes", status: "Confirmed" },
+  { first: "Isabel", last: "Domingo", status: "Confirmed" },
+  { first: "Teodoro", last: "Bautista", status: "Preparing" },
+];
+
+export function buildTodaysMockOrders(packages: PackageType[]): OrderRecord[] {
+  const rng = seeded(20260825);
+  const live = liveChoices(packages);
+  const pool = live.length > 0 ? live : catalogChoices();
+  // Status is fixed per client above rather than left to statusFor()'s dice
+  // roll — these represent clients who already walked in and confirmed
+  // today, which is the whole reason they exist as demo data.
+  return TODAY_WALKIN_CLIENTS.map((client, i) => ({
+    ...buildOrder(rng, client, 9000 + i, TODAY, pool),
+    status: client.status,
+    paymentStatus: client.status === "Confirmed" ? "Paid" : "Unpaid",
+  }));
 }

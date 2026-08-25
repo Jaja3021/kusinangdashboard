@@ -8,6 +8,9 @@ import {
   deletePackage,
   upsertPaxTier,
   deletePaxTier,
+  savePaxTiers,
+  upsertCombo,
+  deleteCombo,
   upsertTrayDish,
   deleteTrayDish,
   upsertPackedMealCategory,
@@ -16,7 +19,7 @@ import {
   type NewPackageInput,
   type PackageDetailsInput,
 } from "@/lib/menu/data";
-import type { PackageType, PaxTier, TrayDish, PackedMealCategoryInfo, DishSlot } from "@/lib/menu/types";
+import type { PackageType, PaxTier, MenuVariant, TrayDish, PackedMealCategoryInfo, DishSlot } from "@/lib/menu/types";
 
 // RLS ("Authenticated insert/update/delete") on public.packages is the real
 // authorization boundary — a non-admin's write simply fails. This table is
@@ -53,6 +56,29 @@ export async function savePaxTierAction(packageSlug: string, tier: PaxTier): Pro
 
 export async function deletePaxTierAction(packageSlug: string, pax: number): Promise<PackageType> {
   const updated = await deletePaxTier(packageSlug, pax);
+  revalidatePath("/dashboard/menu");
+  return updated;
+}
+
+export async function savePaxTiersAction(packageSlug: string, tiers: PaxTier[]): Promise<PackageType> {
+  const updated = await savePaxTiers(packageSlug, tiers);
+  revalidatePath("/dashboard/menu");
+  return updated;
+}
+
+export async function saveComboAction(
+  packageSlug: string,
+  pax: number,
+  paxLabel: string | undefined,
+  combo: MenuVariant
+): Promise<PackageType> {
+  const updated = await upsertCombo(packageSlug, pax, paxLabel, combo);
+  revalidatePath("/dashboard/menu");
+  return updated;
+}
+
+export async function deleteComboAction(packageSlug: string, pax: number, comboId: string): Promise<PackageType> {
+  const updated = await deleteCombo(packageSlug, pax, comboId);
   revalidatePath("/dashboard/menu");
   return updated;
 }

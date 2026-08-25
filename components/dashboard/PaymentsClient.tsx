@@ -9,6 +9,7 @@ import DataTable, { Column } from "@/components/ui/DataTable";
 import { formatPeso } from "@/lib/format";
 import { getBranchById } from "@/lib/mt/branches";
 import { verifyPaymentAction, rejectPaymentAction, getProofUrlAction, getPaymentsForOrderAction } from "@/app/dashboard/payments/actions";
+import { isMockPayment } from "@/lib/payments/mock-payments";
 import { balanceDue, type PaymentQueueRow, type PaymentRecord, type PaymentStatus } from "@/lib/payments/types";
 
 type TabKey = "payments" | "pending" | "lost";
@@ -67,6 +68,14 @@ export default function PaymentsClient({ payments }: { payments: PaymentQueueRow
 
   async function openDetail(row: PaymentQueueRow) {
     setDetail(row);
+    // Mock rows have no matching Supabase order to join against — the row
+    // itself already carries every PaymentRecord field, so it IS its own
+    // one-entry history.
+    if (isMockPayment(row.id)) {
+      setHistory([row]);
+      setHistoryLoading(false);
+      return;
+    }
     setHistory(null);
     setHistoryLoading(true);
     try {
@@ -99,6 +108,12 @@ export default function PaymentsClient({ payments }: { payments: PaymentQueueRow
   }
 
   async function handleVerify(paymentId: string) {
+    // Demo rows aren't in Supabase — verifying just updates local state, the
+    // same way OrdersClient.tsx routes status edits on mock orders.
+    if (isMockPayment(paymentId)) {
+      applyStatus(paymentId, "Verified");
+      return;
+    }
     setActionLoading(paymentId);
     try {
       await verifyPaymentAction(paymentId);
@@ -112,6 +127,10 @@ export default function PaymentsClient({ payments }: { payments: PaymentQueueRow
 
   async function handleReject(paymentId: string) {
     if (typeof window !== "undefined" && !window.confirm("Reject this payment?")) return;
+    if (isMockPayment(paymentId)) {
+      applyStatus(paymentId, "Rejected");
+      return;
+    }
     setActionLoading(paymentId);
     try {
       await rejectPaymentAction(paymentId);

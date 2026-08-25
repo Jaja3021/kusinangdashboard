@@ -35,10 +35,12 @@ const STATUS_TILE_COLORS = {
   completed: "#9ca3af",
 } as const;
 
-// "Today's Orders" (the tile + table below) is real, live from Supabase —
-// see app/dashboard/page.tsx. Every other number here (revenue, inquiries,
-// bookings, refunds) is still the demo CRM pipeline in lib/mt/opportunities.ts;
-// nothing in Supabase backs those yet.
+// "Today's Orders" (the tile + table below) is live Supabase orders plus a
+// handful of walk-in mock orders forced onto today's date so this never
+// sits empty in a fresh environment — see app/dashboard/page.tsx and
+// lib/orders/mock-celebrity-orders.ts's buildTodaysMockOrders. Every other
+// number here (revenue, inquiries, bookings, refunds) is still the demo CRM
+// pipeline in lib/mt/opportunities.ts; nothing in Supabase backs those yet.
 export default function OverviewClient({
   todayOrders,
 }: {
@@ -185,7 +187,7 @@ export default function OverviewClient({
           <StatCard
             label="TODAY'S ORDERS"
             value={scopedTodayOrders.length}
-            sub="Today only · live from Supabase"
+            sub="Today only"
             trend={0}
             icon={<ClipboardList size={18} className="text-purple-500" />}
             iconBg="bg-purple-50"

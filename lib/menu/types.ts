@@ -15,6 +15,10 @@ export type MenuVariant = {
   mains: string[];
   sides: string[];
   snacks: string[];
+  // Named sub-tier a combo belongs to within its pax tier, e.g. "Hapag
+  // Pamilya"/"Salu-Salo" on Handaan Packages. Absent on plain fixed-menu
+  // packages (Grazing's single "Full Spread" per tier).
+  group?: string;
 };
 
 export type PaxTier = {
@@ -197,6 +201,46 @@ export function branchLabel(id: string): string {
 // package's headline numbers. For pax-tiered/fixed-menu packages that's the
 // lowest tier; for head-count it's the per-head rate; tray-cart and
 // packed-meal packages price per dish, so there's no single number to show.
+// One row per named combo menu across every pax tier of every package —
+// flattens Handaan Packages' ~43 named combos (and Grazing's plainer
+// per-tier "Full Spread" rows) into a screenshot-style flat list, read-only.
+// Tray-cart/packed-meal/head-count packages have no paxTiers and simply
+// contribute no rows here.
+export type ComboRow = {
+  key: string;
+  id: string;
+  packageSlug: string;
+  packageName: string;
+  comboName: string;
+  pax: number;
+  paxLabel: string;
+  price: number;
+  group: string;
+  branch?: string[] | null;
+  active: boolean;
+};
+
+export function flattenCombos(packages: PackageType[]): ComboRow[] {
+  const rows = packages.flatMap((pkg) =>
+    pkg.paxTiers.flatMap((tier) =>
+      tier.menus.map((menu) => ({
+        key: `${pkg.slug}-${tier.pax}-${menu.id}`,
+        id: menu.id,
+        packageSlug: pkg.slug,
+        packageName: pkg.name,
+        comboName: menu.name,
+        pax: tier.pax,
+        paxLabel: tier.paxLabel ?? `${tier.pax} pax`,
+        price: menu.price,
+        group: menu.group ?? pkg.category,
+        branch: pkg.branch,
+        active: pkg.active,
+      }))
+    )
+  );
+  return rows.sort((a, b) => a.pax - b.pax || a.price - b.price);
+}
+
 export function packageBasePriceInfo(pkg: PackageType): { paxLabel: string; price: number | null } {
   if (isHeadCountPackage(pkg)) {
     return { paxLabel: pkg.minimumHeadCount ? `${pkg.minimumHeadCount}+ pax` : "—", price: pkg.pricePerHead ?? 0 };

@@ -5,6 +5,7 @@ import type {
   PackageType,
   PackageCategory,
   PaxTier,
+  MenuVariant,
   TrayDish,
   PackedMealCategoryInfo,
   PackageShape,
@@ -205,6 +206,66 @@ export async function deletePaxTier(packageSlug: string, pax: number): Promise<P
     .select(COLUMNS)
     .single();
   if (error) throw new Error(`Failed to delete pax tier: ${error.message}`);
+  return rowToPackage(data as PackageRow);
+}
+
+export async function savePaxTiers(packageSlug: string, tiers: PaxTier[]): Promise<PackageType> {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("packages")
+    .update({ pax_tiers: tiers })
+    .eq("slug", packageSlug)
+    .select(COLUMNS)
+    .single();
+  if (error) throw new Error(`Failed to save pax tiers: ${error.message}`);
+  return rowToPackage(data as PackageRow);
+}
+
+// Adds/updates one named combo within one pax tier, without touching the
+// rest of that package's tiers/menus — the Packages tab's flat combo table
+// edits/creates one row at a time, unlike savePaxTiers' whole-tier writes.
+export async function upsertCombo(
+  packageSlug: string,
+  pax: number,
+  paxLabel: string | undefined,
+  combo: MenuVariant
+): Promise<PackageType> {
+  const supabase = createSupabaseServerClient();
+  const row = await getPackageRow(supabase, packageSlug);
+  const tiers = row.pax_tiers ?? [];
+  const idx = tiers.findIndex((t) => t.pax === pax);
+  const nextTiers =
+    idx >= 0
+      ? tiers.map((t, i) => {
+          if (i !== idx) return t;
+          const comboIdx = t.menus.findIndex((m) => m.id === combo.id);
+          const menus = comboIdx >= 0 ? t.menus.map((m, j) => (j === comboIdx ? combo : m)) : [...t.menus, combo];
+          return { ...t, paxLabel: paxLabel ?? t.paxLabel, menus };
+        })
+      : [...tiers, { pax, paxLabel, menus: [combo] }];
+  const { data, error } = await supabase
+    .from("packages")
+    .update({ pax_tiers: nextTiers })
+    .eq("slug", packageSlug)
+    .select(COLUMNS)
+    .single();
+  if (error) throw new Error(`Failed to save combo: ${error.message}`);
+  return rowToPackage(data as PackageRow);
+}
+
+export async function deleteCombo(packageSlug: string, pax: number, comboId: string): Promise<PackageType> {
+  const supabase = createSupabaseServerClient();
+  const row = await getPackageRow(supabase, packageSlug);
+  const nextTiers = (row.pax_tiers ?? []).map((t) =>
+    t.pax === pax ? { ...t, menus: t.menus.filter((m) => m.id !== comboId) } : t
+  );
+  const { data, error } = await supabase
+    .from("packages")
+    .update({ pax_tiers: nextTiers })
+    .eq("slug", packageSlug)
+    .select(COLUMNS)
+    .single();
+  if (error) throw new Error(`Failed to delete combo: ${error.message}`);
   return rowToPackage(data as PackageRow);
 }
 
