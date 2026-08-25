@@ -12,6 +12,7 @@ import { useBranch } from "@/components/providers/BranchProvider";
 import { ALL_BRANCHES, BRANCHES } from "@/lib/mt/branches";
 import { formatPeso } from "@/lib/format";
 import { createExpenseAction, deleteExpenseAction, updateExpenseStatusAction } from "@/app/dashboard/admin-expenses/actions";
+import { EXPENSE_CATEGORIES } from "@/lib/admin-expenses/categories";
 import { EXPENSE_STATUSES, type Expense, type ExpenseStatus, type NewExpense } from "@/lib/admin-expenses/types";
 
 const STATUS_TONE: Record<ExpenseStatus, BadgeTone> = { Pending: "amber", Approved: "blue", Paid: "green" };
@@ -213,29 +214,28 @@ export default function AdminExpensesClient({ expenses: initialExpenses }: { exp
 
       <Modal isOpen={addModal} onClose={() => setAddModal(false)} title="Add Expense" size="md">
         <form onSubmit={handleAdd} className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-500">Category</span>
+            <select required value={draft.category} onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 text-sm text-brand-900 outline-none focus:border-gold-400">
+              <option value="">Select a category…</option>
+              {EXPENSE_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </label>
           <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-500">Date</span>
-              <input type="date" required value={draft.date} onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400" />
-            </label>
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-gray-500">Branch</span>
               <select value={draft.branch} onChange={(e) => setDraft((d) => ({ ...d, branch: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 text-sm text-brand-900 outline-none focus:border-gold-400">
-                <option value="">—</option>
+                <option value="">Select branch…</option>
                 {BRANCHES.map((b) => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
               </select>
             </label>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-500">Category</span>
-              <input value={draft.category} onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))} placeholder="e.g. Utilities" className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400" />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-500">Vendor</span>
-              <input value={draft.vendor} onChange={(e) => setDraft((d) => ({ ...d, vendor: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400" />
+              <span className="mb-1 block text-xs font-medium text-gray-500">Entry Date</span>
+              <input type="date" required value={draft.date} onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400" />
             </label>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -244,7 +244,7 @@ export default function AdminExpensesClient({ expenses: initialExpenses }: { exp
               <input type="number" min={0} step="any" required value={draft.amount || ""} onChange={(e) => setDraft((d) => ({ ...d, amount: Number(e.target.value) || 0 }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-500">Status</span>
+              <span className="mb-1 block text-xs font-medium text-gray-500">Payment Status</span>
               <select value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value as ExpenseStatus }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 text-sm text-brand-900 outline-none focus:border-gold-400">
                 {EXPENSE_STATUSES.map((s) => (
                   <option key={s} value={s}>{s}</option>
@@ -254,7 +254,7 @@ export default function AdminExpensesClient({ expenses: initialExpenses }: { exp
           </div>
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-gray-500">Notes</span>
-            <textarea value={draft.notes} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))} rows={2} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400" />
+            <textarea value={draft.notes} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))} rows={2} placeholder="Optional" className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400" />
           </label>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={() => setAddModal(false)} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">Cancel</button>

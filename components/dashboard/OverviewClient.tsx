@@ -24,7 +24,7 @@ import { ALL_BRANCHES } from "@/lib/mt/branches";
 import { inRange, todayManila } from "@/lib/mt/dates";
 import { opportunities } from "@/lib/mt/opportunities";
 import { overviewStats } from "@/lib/mt/overview";
-import { monthlyRevenue, revenueTotals } from "@/lib/mt/revenue";
+import { monthOverMonthTrend, monthlyRevenue, revenueTotals } from "@/lib/mt/revenue";
 import { inquirySources } from "@/lib/mt/sources";
 import type { TodayOrder } from "@/lib/orders/today";
 
@@ -39,7 +39,11 @@ const STATUS_TILE_COLORS = {
 // see app/dashboard/page.tsx. Every other number here (revenue, inquiries,
 // bookings, refunds) is still the demo CRM pipeline in lib/mt/opportunities.ts;
 // nothing in Supabase backs those yet.
-export default function OverviewClient({ todayOrders }: { todayOrders: TodayOrder[] }) {
+export default function OverviewClient({
+  todayOrders,
+}: {
+  todayOrders: TodayOrder[];
+}) {
   const router = useRouter();
   const { selectedBranch, scope } = useBranch();
   const { range, label: periodLabel } = useDateRange();
@@ -69,6 +73,14 @@ export default function OverviewClient({ todayOrders }: { todayOrders: TodayOrde
   const totals = useMemo(
     () => revenueTotals(byEventDate, selectedBranch),
     [byEventDate, selectedBranch],
+  );
+
+  // "vs last month" trends — computed from the full pipeline (not the
+  // date-range-scoped byEventDate slice), since a trend is inherently a
+  // fixed month-over-month comparison independent of the picker.
+  const trend = useMemo(
+    () => monthOverMonthTrend(opportunities, selectedBranch, today),
+    [selectedBranch, today],
   );
 
   const stats = useMemo(
@@ -133,7 +145,7 @@ export default function OverviewClient({ todayOrders }: { todayOrders: TodayOrde
             format="money"
             value={totals.confirmedRevenue}
             sub={`${periodLabel} · ${branchSuffix}`}
-            trend="+12.4%"
+            trend={trend.confirmedRevenue ?? undefined}
             trendLabel="vs last month"
             icon={<TrendingUp size={18} className="text-gold-600" />}
             iconBg="bg-gold-500/10"
@@ -185,7 +197,7 @@ export default function OverviewClient({ todayOrders }: { todayOrders: TodayOrde
           format="money"
           value={stats.refunded}
           sub="Total refund value"
-          trend="-8.2%"
+          trend={trend.refunded ?? undefined}
           trendLabel="vs last month"
           icon={<RotateCcw size={18} className="text-pink-500" />}
           iconBg="bg-pink-50"
@@ -197,7 +209,7 @@ export default function OverviewClient({ todayOrders }: { todayOrders: TodayOrde
             format="money"
             value={totals.pipelineValue}
             sub={`${periodLabel} · Partial Payment`}
-            trend="-5.1%"
+            trend={trend.pipelineValue ?? undefined}
             trendLabel="vs last month"
             icon={<Wallet size={18} className="text-gray-400" />}
             iconBg="bg-gray-100"

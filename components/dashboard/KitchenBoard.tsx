@@ -1,22 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, Info, MapPin, RefreshCw, Search, Truck, Users } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { BranchBadge } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import { useSync } from "@/components/providers/SyncProvider";
+import { useMockOrderStatus } from "@/components/providers/MockOrderStatusProvider";
 import { getBranchById } from "@/lib/mt/branches";
+import { isMockOrder } from "@/lib/orders/mock-celebrity-orders";
 import { setKitchenStageAction } from "@/app/dashboard/kitchen/actions";
-import { KITCHEN_STAGES, nextStage, type KitchenOrder, type KitchenStage } from "@/lib/kitchen/types";
+import { KITCHEN_STAGES, nextStage, prevStage, type KitchenOrder } from "@/lib/kitchen/types";
+import type { OrderStatus } from "@/lib/orders/types";
 
-const STAGE_STYLE: Record<KitchenStage, { border: string; dot: string }> = {
-  "Upcoming Orders": { border: "border-t-red-400", dot: "bg-red-500" },
-  "White Board": { border: "border-t-emerald-500", dot: "bg-emerald-500" },
-  Procured: { border: "border-t-purple-500", dot: "bg-purple-500" },
+const STAGE_STYLE: Record<OrderStatus, { border: string; dot: string }> = {
+  "Pending Confirmation": { border: "border-t-gray-300", dot: "bg-gray-400" },
+  Confirmed: { border: "border-t-red-400", dot: "bg-red-500" },
+  Preparing: { border: "border-t-purple-500", dot: "bg-purple-500" },
   Cooking: { border: "border-t-sky-500", dot: "bg-sky-500" },
-  Confirm: { border: "border-t-gold-400", dot: "bg-gold-500" },
+  Completed: { border: "border-t-emerald-500", dot: "bg-emerald-500" },
+  "Ready for Delivery": { border: "border-t-gold-400", dot: "bg-gold-500" },
+  Cancelled: { border: "border-t-gray-300", dot: "bg-gray-400" },
 };
 
 function eventDateLabel(dateStr: string | null): string {
@@ -39,35 +44,71 @@ function deliveryLabel(method: string | null): string {
 export default function KitchenBoard({ orders: initialOrders }: { orders: KitchenOrder[] }) {
   const router = useRouter();
   const { lastUpdated, loading, refresh } = useSync();
+  const { getStatus, setStatus } = useMockOrderStatus();
+  // Holds real (Supabase) orders' optimistic status while a server round
+  // trip is in flight. Mock orders' status is never written in here — it's
+  // always re-derived below from the shared provider, so a change made on
+  // the Orders page (or earlier on this page) shows up reactively without
+  // needing an effect to "catch up" after mount.
   const [orders, setOrders] = useState(initialOrders);
   const [search, setSearch] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
-  const detail = orders.find((o) => o.id === detailId) ?? null;
+  const displayOrders = useMemo(
+    () => orders.map((o) => (isMockOrder(o) ? { ...o, status: getStatus(o) } : o)),
+    [orders, getStatus],
+  );
+
+  const detail = displayOrders.find((o) => o.id === detailId) ?? null;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return orders;
-    return orders.filter((o) => {
+    if (!q) return displayOrders;
+    return displayOrders.filter((o) => {
       if (o.customer.toLowerCase().includes(q)) return true;
       if (o.packageName.toLowerCase().includes(q)) return true;
       return o.dishes.some((d) => d.name.toLowerCase().includes(q));
     });
-  }, [orders, search]);
+  }, [displayOrders, search]);
 
-  async function move(order: KitchenOrder, stage: KitchenStage) {
+  async function move(order: KitchenOrder, status: OrderStatus) {
+    if (order.status === status) return;
+
+    if (isMockOrder(order)) {
+      // Shared provider override only — never touches Supabase, can't fail,
+      // and is picked up reactively by displayOrders above.
+      setStatus(order.id, status);
+      setDetailId(null);
+      return;
+    }
+
     setMoving(true);
     const prior = orders;
-    setOrders((cur) => cur.map((o) => (o.id === order.id ? { ...o, stage } : o)));
+    setOrders((cur) => cur.map((o) => (o.id === order.id ? { ...o, status } : o)));
     try {
-      await setKitchenStageAction(order.id, stage);
+      await setKitchenStageAction(order.id, status);
       setDetailId(null);
     } catch {
       setOrders(prior);
     } finally {
       setMoving(false);
     }
+  }
+
+  function onDragStart(e: DragEvent, id: string) {
+    setDraggingId(id);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDrop(status: OrderStatus) {
+    const id = draggingId;
+    setDraggingId(null);
+    if (!id) return;
+    const order = displayOrders.find((o) => o.id === id);
+    if (!order) return;
+    move(order, status);
   }
 
   function doRefresh() {
@@ -77,7 +118,7 @@ export default function KitchenBoard({ orders: initialOrders }: { orders: Kitche
 
   return (
     <div>
-      <PageHeader title="Kitchen" subtitle="Every order tracked from booking to kitchen confirmation.">
+      <PageHeader title="Kitchen" subtitle="Every order tracked from confirmation to dispatch.">
         <button
           onClick={doRefresh}
           className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700"
@@ -98,16 +139,21 @@ export default function KitchenBoard({ orders: initialOrders }: { orders: Kitche
           />
         </div>
         <span className="flex items-center gap-1 text-xs text-gray-400">
-          <Info size={12} /> Live board · ignores the period
+          <Info size={12} /> Live board · ignores the period · drag a card to move it
         </span>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         {KITCHEN_STAGES.map((stage) => {
-          const items = filtered.filter((o) => o.stage === stage);
+          const items = filtered.filter((o) => o.status === stage);
           const style = STAGE_STYLE[stage];
           return (
-            <div key={stage} className={`rounded-lg border border-t-4 ${style.border} border-gray-200 bg-white`}>
+            <div
+              key={stage}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => handleDrop(stage)}
+              className={`rounded-lg border border-t-4 ${style.border} border-gray-200 bg-white`}
+            >
               <div className="flex items-center justify-between px-3 py-2.5">
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-brand-900">
                   <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
@@ -122,8 +168,10 @@ export default function KitchenBoard({ orders: initialOrders }: { orders: Kitche
                 {items.map((o) => (
                   <button
                     key={o.id}
+                    draggable
+                    onDragStart={(e) => onDragStart(e, o.id)}
                     onClick={() => setDetailId(o.id)}
-                    className="w-full rounded-lg border border-gray-200 bg-white p-3 text-left shadow-sm hover:border-gold-300"
+                    className="w-full cursor-grab rounded-lg border border-gray-200 bg-white p-3 text-left shadow-sm hover:border-gold-300 active:cursor-grabbing"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-medium text-brand-900">{o.customer || o.orderNumber}</span>
@@ -152,8 +200,8 @@ export default function KitchenBoard({ orders: initialOrders }: { orders: Kitche
         {detail && (
           <div>
             <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-red-500">
-              <span className={`h-1.5 w-1.5 rounded-full ${STAGE_STYLE[detail.stage].dot}`} />
-              {detail.stage} · {eventDateLabel(detail.eventDate)}
+              <span className={`h-1.5 w-1.5 rounded-full ${STAGE_STYLE[detail.status].dot}`} />
+              {detail.status} · {eventDateLabel(detail.eventDate)}
             </p>
             <h2 className="font-display text-lg font-bold text-brand-900">{detail.customer || detail.orderNumber}</h2>
             {detail.quantityLabel && <p className="text-sm text-gray-400">{detail.quantityLabel}</p>}
@@ -197,24 +245,23 @@ export default function KitchenBoard({ orders: initialOrders }: { orders: Kitche
 
             <div className="mt-5 flex items-center justify-between gap-3">
               {(() => {
-                const i = KITCHEN_STAGES.indexOf(detail.stage);
-                const prev = i > 0 ? KITCHEN_STAGES[i - 1] : null;
+                const prev = prevStage(detail.status);
                 return prev ? (
                   <button onClick={() => move(detail, prev)} disabled={moving} className="text-xs font-medium text-gray-400 hover:text-gray-600">
                     ← Move back to {prev}
                   </button>
                 ) : <span />;
               })()}
-              {nextStage(detail.stage) ? (
+              {nextStage(detail.status) ? (
                 <button
-                  onClick={() => move(detail, nextStage(detail.stage)!)}
+                  onClick={() => move(detail, nextStage(detail.status)!)}
                   disabled={moving}
                   className="rounded-lg bg-brand-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-900 disabled:opacity-50"
                 >
-                  {moving ? "Moving…" : `Move to ${nextStage(detail.stage)} →`}
+                  {moving ? "Moving…" : `Move to ${nextStage(detail.status)} →`}
                 </button>
               ) : (
-                <span className="text-sm font-medium text-emerald-600">✓ Confirmed</span>
+                <span className="text-sm font-medium text-emerald-600">✓ Ready for Delivery</span>
               )}
             </div>
           </div>

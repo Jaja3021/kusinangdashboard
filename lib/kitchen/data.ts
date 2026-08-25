@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity-log/data";
-import type { DishLine, KitchenOrder, KitchenStage } from "./types";
+import { updateOrderStatus } from "@/lib/orders/data";
+import type { OrderStatus } from "@/lib/orders/types";
+import { KITCHEN_STAGES, type DishLine, type KitchenOrder } from "./types";
 
 type OrderRow = {
   id: string;
@@ -83,7 +85,7 @@ function parseDishes(row: OrderRow): DishLine[] {
   return [];
 }
 
-function rowToKitchenOrder(row: OrderRow, stage: KitchenStage): KitchenOrder {
+function rowToKitchenOrder(row: OrderRow): KitchenOrder {
   return {
     id: row.id,
     orderNumber: row.order_number,
@@ -97,36 +99,34 @@ function rowToKitchenOrder(row: OrderRow, stage: KitchenStage): KitchenOrder {
     deliveryMethod: row.delivery_method,
     instructions: row.instructions,
     dishes: parseDishes(row),
-    stage,
+    status: row.status as OrderStatus,
   };
 }
 
-/** Every order still in flight (not cancelled or completed), each mapped to
- * its kitchen-prep stage — "Upcoming Orders" for any order with no
- * kitchen_stages row yet. */
+/** Every order whose status is one of the 5 kitchen-board columns
+ * (KITCHEN_STAGES) — the board's column IS the order's real status, there's
+ * no separate kitchen_stages table involved anymore (that table still
+ * exists in Supabase but the app no longer reads or writes it). */
 export async function getKitchenBoard(): Promise<KitchenOrder[]> {
   const supabase = createSupabaseServerClient();
 
   const { data: orderRows, error: orderError } = await supabase
     .from("orders")
     .select(ORDER_COLUMNS)
-    .not("status", "in", "(Cancelled,Completed)")
+    .in("status", KITCHEN_STAGES)
     .order("event_date", { ascending: true })
     .order("event_time", { ascending: true });
   if (orderError) throw new Error(`Failed to load orders: ${orderError.message}`);
 
-  const { data: stageRows, error: stageError } = await supabase.from("kitchen_stages").select("order_id, stage");
-  if (stageError) throw new Error(`Failed to load kitchen stages: ${stageError.message}`);
-
-  const stageByOrder = new Map((stageRows as { order_id: string; stage: KitchenStage }[]).map((r) => [r.order_id, r.stage]));
-
-  return (orderRows as OrderRow[]).map((row) => rowToKitchenOrder(row, stageByOrder.get(row.id) ?? "Upcoming Orders"));
+  return (orderRows as OrderRow[]).map(rowToKitchenOrder);
 }
 
-export async function setKitchenStage(orderId: string, stage: KitchenStage): Promise<void> {
+/** Moving a kitchen card is just an order status update — reuses the same
+ * write path the Orders page's status dropdown uses, so the two can never
+ * disagree. */
+export async function setKitchenStage(orderId: string, status: OrderStatus): Promise<void> {
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("kitchen_stages").upsert({ order_id: orderId, stage }, { onConflict: "order_id" });
-  if (error) throw new Error(`Failed to update kitchen stage: ${error.message}`);
+  await updateOrderStatus(orderId, status);
 
   const { data: order } = await supabase.from("orders").select("order_number, first_name, last_name").eq("id", orderId).maybeSingle();
   const o = order as { order_number: string; first_name: string; last_name: string } | null;
@@ -135,6 +135,6 @@ export async function setKitchenStage(orderId: string, stage: KitchenStage): Pro
     action: "UPDATE",
     entity: "Order",
     name: o ? `${o.first_name} ${o.last_name}`.trim() || o.order_number : "",
-    details: `Moved to ${stage}`,
+    details: `Moved to ${status}`,
   });
 }

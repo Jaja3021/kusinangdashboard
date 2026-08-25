@@ -2,9 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Wifi, Zap } from "lucide-react";
+import { Search, Zap } from "lucide-react";
 import Modal from "@/components/ui/Modal";
-import { useSync } from "@/components/providers/SyncProvider";
 import { search, type SearchResult } from "@/lib/orders/search";
 import type { OrderRecord } from "@/lib/orders/types";
 import BranchSelector from "./BranchSelector";
@@ -43,7 +42,6 @@ function ResultRow({
 
 export default function Topbar({ orders }: { orders: OrderRecord[] }) {
   const router = useRouter();
-  const { lastUpdated, loading } = useSync();
 
   const [term, setTerm] = useState("");
   const [desktopOpen, setDesktopOpen] = useState(false);
@@ -112,27 +110,12 @@ export default function Topbar({ orders }: { orders: OrderRecord[] }) {
           <Search size={19} />
         </button>
 
-        {/* Sync status. Static data, so this only ever reports connecting/live. */}
-        <span
-          className={`hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium md:flex ${
-            lastUpdated
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-gray-200 text-gray-500"
-          }`}
-        >
-          {lastUpdated ? (
-            <>
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              <Wifi size={12} /> CRM: Live
-            </>
-          ) : (
-            <>
-              <Zap size={12} /> CRM Sync{loading ? "…" : ": Connecting"}
-            </>
-          )}
+        {/* Demo mode badge. Static data, no real CRM connection. */}
+        <span className="hidden items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 md:flex">
+          <span className="relative flex h-2 w-2">
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+          </span>
+          <Zap size={12} /> Demo
         </span>
 
         <div className="hidden md:block">

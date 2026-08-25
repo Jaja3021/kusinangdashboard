@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { BranchProvider } from "@/components/providers/BranchProvider";
 import { DateRangeProvider } from "@/components/providers/DateRangeProvider";
+import { MockOrderStatusProvider } from "@/components/providers/MockOrderStatusProvider";
 import { SyncProvider } from "@/components/providers/SyncProvider";
 import MobileNav from "@/components/shell/MobileNav";
 import Sidebar from "@/components/shell/Sidebar";
@@ -24,19 +25,21 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     <AuthProvider user={user}>
       <BranchProvider>
         <DateRangeProvider>
-          <SyncProvider>
-            <div className="flex h-screen overflow-hidden bg-gray-50">
-              <Sidebar />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <Topbar orders={orders} />
-                {/* pb-20 on mobile clears the fixed bottom tab bar. */}
-                <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-5 md:pb-5">
-                  {children}
-                </main>
+          <MockOrderStatusProvider>
+            <SyncProvider>
+              <div className="flex h-screen overflow-hidden bg-gray-50">
+                <Sidebar />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <Topbar orders={orders} />
+                  {/* pb-20 on mobile clears the fixed bottom tab bar. */}
+                  <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-5 md:pb-5">
+                    {children}
+                  </main>
+                </div>
+                <MobileNav />
               </div>
-              <MobileNav />
-            </div>
-          </SyncProvider>
+            </SyncProvider>
+          </MockOrderStatusProvider>
         </DateRangeProvider>
       </BranchProvider>
     </AuthProvider>

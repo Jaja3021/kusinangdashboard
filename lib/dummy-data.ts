@@ -1,6 +1,15 @@
 // Centralized dummy data for the Kusinang Pamana operations dashboard.
 // All figures are illustrative only.
 
+import {
+  financialPeriods,
+  actualPeriods,
+  fullyActualMonthIndexes,
+  monthlyRollup,
+  blendedTransactionValue,
+} from "./owner-financials/mock";
+import { totalCapturedExpense } from "./owner-financials/types";
+
 export const BRANCHES = ["Quezon City", "Makati", "Cebu"] as const;
 
 // ---------- Inquiries ----------
@@ -49,80 +58,12 @@ export const customers: Customer[] = [
   { id: "CUS-108", name: "Angelica Ramos", contact: "angie.ramos@gmail.com", totalBookings: 1, lifetimeSpend: 0, tier: "Silver", lastEvent: "Inquiry only" },
 ];
 
-// ---------- Menu / Packages ----------
-export type MenuBranch = "Both" | (typeof BRANCHES)[number];
-
-export type MenuPackage = {
-  id: string;
-  code: string;
-  name: string;
-  pax: string;
-  basePrice: number;
-  group: string;
-  branch: MenuBranch;
-  active: boolean;
-  inclusions: string[];
-};
-
-export const menuPackages: MenuPackage[] = [
-  { id: "PKG-fam-c1", code: "fam-c1", name: "Chicken Adobo Family Combo", pax: "15 pax", basePrice: 8500, group: "Family Combos", branch: "Both", active: true, inclusions: ["Chicken Adobo", "Steamed Rice", "Pancit Bihon", "Buko Juice"] },
-  { id: "PKG-fam-c2", code: "fam-c2", name: "Pork Sinigang Family Combo", pax: "15 pax", basePrice: 9000, group: "Family Combos", branch: "Both", active: true, inclusions: ["Sinigang na Baboy", "Steamed Rice", "Ensaladang Talong", "Buko Juice"] },
-  { id: "PKG-fam-c3", code: "fam-c3", name: "Kare-Kare Family Combo", pax: "15 pax", basePrice: 10500, group: "Family Combos", branch: "Quezon City", active: true, inclusions: ["Kare-Kare", "Bagoong", "Steamed Rice", "Leche Flan"] },
-  { id: "PKG-feast-c1", code: "feast-c1", name: "Lechon Belly Feast Combo", pax: "15 pax", basePrice: 12000, group: "Feast Combos", branch: "Both", active: true, inclusions: ["Lechon Belly", "Pancit Palabok", "Garlic Rice", "Buko Pandan"] },
-  { id: "PKG-feast-c2", code: "feast-c2", name: "Crispy Pata Feast Combo", pax: "15 pax", basePrice: 12000, group: "Feast Combos", branch: "Both", active: true, inclusions: ["Crispy Pata", "Java Rice", "Ensaladang Talong", "Leche Flan"] },
-  { id: "PKG-feast-c3", code: "feast-c3", name: "Bicol Express Feast Combo", pax: "15 pax", basePrice: 12000, group: "Feast Combos", branch: "Makati", active: true, inclusions: ["Bicol Express", "Steamed Rice", "Lumpiang Shanghai", "Buko Juice"] },
-  { id: "PKG-feast-c4", code: "feast-c4", name: "Beef Caldereta Feast Combo", pax: "15 pax", basePrice: 15000, group: "Feast Combos", branch: "Both", active: true, inclusions: ["Beef Caldereta", "Garlic Rice", "Pancit Bihon", "Buko Pandan"] },
-  { id: "PKG-feast-c5", code: "feast-c5", name: "Pancit Palabok Feast Combo", pax: "15 pax", basePrice: 15000, group: "Feast Combos", branch: "Both", active: true, inclusions: ["Pancit Palabok", "Lumpiang Shanghai", "Steamed Rice", "Leche Flan"] },
-  { id: "PKG-feast-c6", code: "feast-c6", name: "Chicken Inasal Feast Combo", pax: "15 pax", basePrice: 15000, group: "Feast Combos", branch: "Cebu", active: false, inclusions: ["Chicken Inasal", "Java Rice", "Atchara", "Buko Juice"] },
-  { id: "PKG-feast-c7", code: "feast-c7", name: "Seafood Kare-Kare Feast Combo", pax: "25 pax", basePrice: 15000, group: "Feast Combos", branch: "Both", active: true, inclusions: ["Seafood Kare-Kare", "Bagoong", "Steamed Rice", "Buko Pandan"] },
-  { id: "PKG-feast-c8", code: "feast-c8", name: "Beef Mechado Feast Combo", pax: "25 pax", basePrice: 15000, group: "Feast Combos", branch: "Both", active: true, inclusions: ["Beef Mechado", "Garlic Rice", "Ensaladang Talong", "Leche Flan"] },
-  { id: "PKG-feast-c9", code: "feast-c9", name: "Dinuguan Feast Combo", pax: "25 pax", basePrice: 15000, group: "Feast Combos", branch: "Quezon City", active: true, inclusions: ["Dinuguan", "Puto", "Steamed Rice", "Buko Juice"] },
-  { id: "PKG-prem-c1", code: "prem-c1", name: "Lechon Belly Premium Combo", pax: "15 pax", basePrice: 20000, group: "Premium", branch: "Both", active: true, inclusions: ["Whole Lechon Belly", "Kare-Kare", "Pancit Palabok", "Buko Pandan", "Leche Flan"] },
-  { id: "PKG-xxxl-c1", code: "xxxl-c1", name: "Whole Lechon XXXL Combo", pax: "25 pax", basePrice: 17000, group: "XXXL Combos", branch: "Both", active: true, inclusions: ["Whole Lechon", "Pancit Bihon", "Garlic Rice", "Buko Juice"] },
-  { id: "PKG-xxxl-c2", code: "xxxl-c2", name: "Boodle Fight XXXL Combo", pax: "25 pax", basePrice: 17000, group: "XXXL Combos", branch: "Both", active: true, inclusions: ["Grilled Liempo", "Inihaw na Bangus", "Garlic Rice", "Ensaladang Talong"] },
-  { id: "PKG-2xxxl-c1", code: "2xxxl-c1", name: "Grand Fiesta 2 XXXL Combo", pax: "50 pax", basePrice: 34000, group: "2 XXXL Combos", branch: "Both", active: true, inclusions: ["2 Whole Lechon", "Kare-Kare", "Pancit Palabok", "Buko Pandan"] },
-  { id: "PKG-named-1", code: "named-1", name: "Kusinang Pamana Signature Package", pax: "30 pax", basePrice: 25000, group: "Named Packages", branch: "Both", active: true, inclusions: ["Lechon Belly", "Beef Caldereta", "Pancit Palabok", "Leche Flan", "Buko Juice"] },
-  { id: "PKG-special-1", code: "special-1", name: "Simbang Gabi Merienda Special", pax: "40 pax", basePrice: 12000, group: "Special Package", branch: "Both", active: true, inclusions: ["Puto Bumbong", "Bibingka", "Salabat", "Suman"] },
-];
-
-// ---------- Menu / Dishes ----------
-// Individual a la carte dishes reuse the MenuPackage shape (pax/inclusions
-// are simply unused for this tab) so the Menu page can render every tab
-// through one shared table and edit form.
-export const menuDishes: MenuPackage[] = [
-  { id: "DSH-01", code: "dish-01", name: "Chicken Adobo", pax: "", basePrice: 280, group: "Ulam", branch: "Both", active: true, inclusions: [] },
-  { id: "DSH-02", code: "dish-02", name: "Beef Caldereta", pax: "", basePrice: 380, group: "Ulam", branch: "Both", active: true, inclusions: [] },
-  { id: "DSH-03", code: "dish-03", name: "Kare-Kare", pax: "", basePrice: 420, group: "Ulam", branch: "Quezon City", active: true, inclusions: [] },
-  { id: "DSH-04", code: "dish-04", name: "Lechon Kawali", pax: "", basePrice: 350, group: "Ulam", branch: "Both", active: true, inclusions: [] },
-  { id: "DSH-05", code: "dish-05", name: "Sinigang na Baboy", pax: "", basePrice: 320, group: "Soups", branch: "Both", active: true, inclusions: [] },
-  { id: "DSH-06", code: "dish-06", name: "Bicol Express", pax: "", basePrice: 300, group: "Ulam", branch: "Makati", active: true, inclusions: [] },
-  { id: "DSH-07", code: "dish-07", name: "Pancit Bihon", pax: "", basePrice: 250, group: "Rice & Noodles", branch: "Both", active: true, inclusions: [] },
-  { id: "DSH-08", code: "dish-08", name: "Pancit Palabok", pax: "", basePrice: 270, group: "Rice & Noodles", branch: "Both", active: true, inclusions: [] },
-  { id: "DSH-09", code: "dish-09", name: "Garlic Rice", pax: "", basePrice: 120, group: "Rice & Noodles", branch: "Both", active: true, inclusions: [] },
-  { id: "DSH-10", code: "dish-10", name: "Lumpiang Shanghai", pax: "", basePrice: 220, group: "Appetizers", branch: "Both", active: true, inclusions: [] },
-  { id: "DSH-11", code: "dish-11", name: "Leche Flan", pax: "", basePrice: 180, group: "Dessert", branch: "Both", active: true, inclusions: [] },
-  { id: "DSH-12", code: "dish-12", name: "Buko Pandan", pax: "", basePrice: 190, group: "Dessert", branch: "Cebu", active: true, inclusions: [] },
-  { id: "DSH-13", code: "dish-13", name: "Puto Bumbong", pax: "", basePrice: 150, group: "Kakanin", branch: "Both", active: false, inclusions: [] },
-  { id: "DSH-14", code: "dish-14", name: "Halo-Halo", pax: "", basePrice: 160, group: "Dessert", branch: "Both", active: true, inclusions: [] },
-];
-
-// ---------- Menu / Grazing, Catering & Packed Meals ----------
-export const grazingSpreads: MenuPackage[] = [
-  { id: "GRZ-01", code: "graze-1", name: "Fiesta Grazing Table", pax: "50 pax", basePrice: 15000, group: "Grazing", branch: "Both", active: true, inclusions: ["Charcuterie & Local Cheeses", "Fresh Fruits", "Bibingka Bites", "Assorted Kakanin"] },
-  { id: "GRZ-02", code: "graze-2", name: "Kakanin & Fruits Grazing Spread", pax: "30 pax", basePrice: 9000, group: "Grazing", branch: "Quezon City", active: true, inclusions: ["Assorted Kakanin", "Fresh Fruits", "Suman", "Buko Pandan Bites"] },
-];
-
-export const cateringPackages: MenuPackage[] = [
-  { id: "CTR-01", code: "cater-1", name: "Full Service Wedding Catering", pax: "150 pax", basePrice: 145000, group: "Catering", branch: "Both", active: true, inclusions: ["Lechon", "Beef Caldereta", "Pancit Palabok", "Dessert Bar", "Full Table Service"] },
-  { id: "CTR-02", code: "cater-2", name: "Corporate Event Catering", pax: "100 pax", basePrice: 95000, group: "Catering", branch: "Both", active: true, inclusions: ["Chicken Inasal", "Garlic Rice", "Pancit Bihon", "Bottled Water"] },
-];
-
-export const packedMeals: MenuPackage[] = [
-  { id: "PCK-01", code: "pack-1", name: "Standard Packed Meal", pax: "1 pax", basePrice: 180, group: "Packed Meals", branch: "Both", active: true, inclusions: ["Choice of Ulam", "Steamed Rice", "Bottled Water"] },
-  { id: "PCK-02", code: "pack-2", name: "Deluxe Packed Meal", pax: "1 pax", basePrice: 250, group: "Packed Meals", branch: "Both", active: true, inclusions: ["Two Ulam", "Steamed Rice", "Dessert", "Bottled Water"] },
-  { id: "PCK-03", code: "pack-3", name: "Vegetarian Packed Meal", pax: "1 pax", basePrice: 200, group: "Packed Meals", branch: "Makati", active: true, inclusions: ["Vegetable Ulam", "Steamed Rice", "Fruit"] },
-  { id: "PCK-04", code: "pack-4", name: "Executive Packed Meal", pax: "1 pax", basePrice: 320, group: "Packed Meals", branch: "Both", active: true, inclusions: ["Premium Ulam", "Garlic Rice", "Dessert", "Bottled Water", "Individually Boxed"] },
-];
+// ---------- Menu / Packages, Dishes, Grazing, Catering & Packed Meals ----------
+// Moved to lib/menu/dummy-catalog.ts (used as the price basis for the Owner
+// Financials mock generator) and re-exported here so existing imports from
+// "@/lib/dummy-data" keep working unchanged.
+export type { MenuBranch, MenuPackage } from "./menu/dummy-catalog";
+export { menuPackages, menuDishes, grazingSpreads, cateringPackages, packedMeals } from "./menu/dummy-catalog";
 
 // ---------- Today's Orders ----------
 // Real orders now live in Supabase — see lib/orders/data.ts. This dummy set
@@ -256,30 +197,41 @@ export const adminExpenses: Expense[] = [
 ];
 
 // ---------- Sales ----------
-// Trailing 12 months, Sep 2025 – Aug 2026. Fiesta/holiday season (Dec) peaks,
-// lean season (Jan) dips — total lands just above ₱8M for the year.
-export const monthlySales = [
-  { month: "Sep", revenue: 480000 },
-  { month: "Oct", revenue: 520000 },
-  { month: "Nov", revenue: 610000 },
-  { month: "Dec", revenue: 780000 },
-  { month: "Jan", revenue: 560000 },
-  { month: "Feb", revenue: 600000 },
-  { month: "Mar", revenue: 640000 },
-  { month: "Apr", revenue: 690000 },
-  { month: "May", revenue: 720000 },
-  { month: "Jun", revenue: 760000 },
-  { month: "Jul", revenue: 810000 },
-  { month: "Aug", revenue: 850000 },
-];
+// Calendar year 2026, Jan – Dec. Derived from the same semi-monthly period
+// generator that powers Owner Financials (lib/owner-financials/mock.ts), so
+// Sales, Branch Performance, Reports, and Owner Financials all agree on the
+// same revenue. Jan – Aug 15 is actual; Aug 16 – Dec 31 is projected
+// (fiesta/holiday season peaks in December, lean season dips in January).
+export const monthlySales = monthlyRollup.map((m) => ({ month: m.month, revenue: m.revenue }));
 
-const annualRevenue = monthlySales.reduce((sum, m) => sum + m.revenue, 0);
+const actualRevenue = actualPeriods.reduce((sum, p) => sum + p.sales, 0);
+
+// Month-to-date: actual-only periods inside the most recent (current) month.
+const currentMonthIndex =
+  actualPeriods.length > 0 ? Number(actualPeriods[actualPeriods.length - 1].startDate.slice(5, 7)) - 1 : 0;
+const mtdRevenue = actualPeriods
+  .filter((p) => Number(p.startDate.slice(5, 7)) - 1 === currentMonthIndex)
+  .reduce((sum, p) => sum + p.sales, 0);
+
+// Month-over-month growth, compared across the two most recent calendar
+// months where both semi-monthly periods are actual (so a partial current
+// month is never compared against a full prior one).
+const lastFullMonth = fullyActualMonthIndexes[fullyActualMonthIndexes.length - 1];
+const prevFullMonth = fullyActualMonthIndexes[fullyActualMonthIndexes.length - 2];
+const growthPct =
+  lastFullMonth != null && prevFullMonth != null && monthlyRollup[prevFullMonth].revenue > 0
+    ? Math.round(
+        ((monthlyRollup[lastFullMonth].revenue - monthlyRollup[prevFullMonth].revenue) /
+          monthlyRollup[prevFullMonth].revenue) *
+          1000,
+      ) / 10
+    : 0;
 
 export const salesSummary = {
-  mtdRevenue: monthlySales[monthlySales.length - 1].revenue,
-  ytdRevenue: annualRevenue,
-  avgOrderValue: 76500,
-  growthPct: 4.9,
+  mtdRevenue,
+  ytdRevenue: actualRevenue,
+  avgOrderValue: blendedTransactionValue,
+  growthPct,
 };
 
 // ---------- Payments & Refunds ----------
@@ -323,30 +275,36 @@ export const reports: Report[] = [
 ];
 
 // ---------- Owner Financials ----------
-// Expenses run ~63% of revenue each month (ingredients, labor, overhead, rent);
-// the remainder is net profit. Derived from the same monthlySales series above
-// so Sales, Branch Performance, and Owner Financials all agree on total revenue.
-const EXPENSE_RATIO = 0.63;
-
-export const ownerFinancialsMonthly = monthlySales.map((m, i) => {
-  const expenses = Math.round((m.revenue * EXPENSE_RATIO) / 1000) * 1000;
-  return {
-    id: `OF-${i + 1}`,
-    month: m.month,
-    revenue: m.revenue,
-    expenses,
-    profit: m.revenue - expenses,
-  };
-});
+// The full period-level detail (compensation, distributions, change history)
+// now lives in lib/owner-financials/ — this is a calendar-month rollup kept
+// here only for callers that still want the old month/revenue/expenses/profit
+// shape. Actual-only (Jan – Aug 15); Aug 16 – Dec 31 is excluded, matching the
+// KPI cards on the Owner Financials page itself.
+export const ownerFinancialsMonthly = Array.from(new Set([...fullyActualMonthIndexes, currentMonthIndex]))
+  .sort((a, b) => a - b)
+  .map((monthIndex) => {
+    const periods = [financialPeriods[monthIndex * 2], financialPeriods[monthIndex * 2 + 1]].filter(
+      (p) => p.kind === "actual",
+    );
+    const revenue = periods.reduce((sum, p) => sum + p.sales, 0);
+    const expenses = periods.reduce((sum, p) => sum + totalCapturedExpense(p), 0);
+    return {
+      id: `OF-${monthIndex + 1}`,
+      month: monthlyRollup[monthIndex].month,
+      revenue,
+      expenses,
+      profit: revenue - expenses,
+    };
+  });
 
 const totalExpenses = ownerFinancialsMonthly.reduce((sum, m) => sum + m.expenses, 0);
-const netProfit = annualRevenue - totalExpenses;
+const netProfit = actualRevenue - totalExpenses;
 
 export const ownerFinancialsSummary = {
-  totalRevenue: annualRevenue,
+  totalRevenue: actualRevenue,
   totalExpenses,
   netProfit,
-  profitMarginPct: Math.round((netProfit / annualRevenue) * 1000) / 10,
+  profitMarginPct: actualRevenue > 0 ? Math.round((netProfit / actualRevenue) * 1000) / 10 : 0,
 };
 
 // ---------- Cost Calculator (example) ----------

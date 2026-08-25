@@ -1,15 +1,27 @@
-// Dummy CRM records for the dashboard. Illustrative only — no real customers.
+// The Overview page's CRM pipeline — regenerated from the same shared model
+// as Owner Financials (lib/owner-financials/mock.ts) and the celebrity
+// order roster (lib/celebrities.ts), instead of an unrelated invented
+// dataset. Deterministic (mulberry32, same helper used throughout this
+// session's mock modules) — this module renders on both server and client
+// (OverviewClient.tsx, NotificationsMenu.tsx import it directly at module
+// scope), so every value must come from the fixed seed, never
+// Math.random()/new Date().
 //
-// Generated from a fixed seed rather than written out by hand, so the set is
-// large enough for the charts to look alive while staying byte-identical on
-// every render. That determinism matters: the server and the client both
-// evaluate this module, and any drift between them is a hydration mismatch.
-//
-// Event dates are anchored to today so "Today's Orders" and the balance
-// notifications always have something to show.
+// The exact-tie mechanism: for each ACTUAL financial period, a period's
+// `sales` figure is split across the 3 branches, then each branch's share
+// is split across 1–2 "won" records — both splits use a normalize-then-
+// round-with-remainder trick so the pieces sum back to *exactly* the whole.
+// Summed across all 15 actual periods, every won+billable record's `amount`
+// therefore totals exactly the Owner Financials/Sales-page actual-to-date
+// figure. Projected periods (Aug 16 – Dec 31) become "open" records instead
+// — future work belongs in the pipeline, not booked revenue.
 
-import { addDays, todayManila } from "./dates";
-import { BRANCH_NAMES } from "./branches";
+import { CELEBRITIES } from "@/lib/celebrities";
+import { menuPackages, grazingSpreads, cateringPackages, packedMeals } from "@/lib/menu/dummy-catalog";
+import { financialPeriods } from "@/lib/owner-financials/mock";
+import type { FinancialPeriod } from "@/lib/owner-financials/types";
+import { BRANCHES, BRANCH_NAMES } from "./branches";
+import { addDays, daysUntil } from "./dates";
 import type {
   InquirySource,
   Opportunity,
@@ -19,7 +31,7 @@ import type {
   StageName,
 } from "./types";
 
-/** mulberry32 — small, fast, and stable across engines. */
+/** mulberry32 — same helper as lib/owner-financials/mock.ts and lib/orders/mock-celebrity-orders.ts. */
 function seeded(seed: number) {
   let a = seed >>> 0;
   return () => {
@@ -30,19 +42,11 @@ function seeded(seed: number) {
   };
 }
 
-const FIRST_NAMES = [
-  "Maria", "Josefina", "Ramon", "Antonio", "Liza", "Carlo", "Angelica",
-  "Ferdinand", "Teresita", "Michael", "Rosario", "Benjamin", "Cristina",
-  "Paolo", "Imelda", "Eduardo", "Lourdes", "Rafael", "Corazon", "Miguel",
-  "Divina", "Alfonso", "Perlita", "Gregorio", "Nenita", "Ricardo", "Amparo",
-  "Salvador", "Estrella", "Bienvenido",
-];
+const pick = <T,>(rng: () => number, list: readonly T[]): T => list[Math.floor(rng() * list.length)];
+const between = (rng: () => number, min: number, max: number): number => min + Math.floor(rng() * (max - min + 1));
 
-const LAST_NAMES = [
-  "Santos", "Cruz", "Dela Cruz", "Reyes", "Bautista", "Mendoza", "Ramos",
-  "Aquino", "Lim", "Garcia", "Torres", "Flores", "Del Rosario", "Fernandez",
-  "Villanueva", "Castillo", "Navarro", "Domingo", "Salazar", "Pascual",
-];
+// Matches the split already used in lib/owner-financials/mock.ts's DUMMY_BASE-derived rollup.
+const BRANCH_WEIGHT: Record<string, number> = { cavite: 0.42, laguna: 0.25, "metro-manila": 0.33 };
 
 const EVENT_TYPES = [
   "Wedding Reception", "Debut", "Christening", "Corporate Gala",
@@ -50,10 +54,7 @@ const EVENT_TYPES = [
   "Baptism", "Corporate Lunch",
 ];
 
-const PACKAGES = [
-  "Pamana Heritage Buffet", "Fiesta Grazing Table", "Kasalan Premium",
-  "Handaan Silver", "Salu-Salo Bronze", "Merienda Cena", "Corporate Bento",
-];
+const EVENT_TIMES = ["10:00 AM", "11:30 AM", "12:00 PM", "5:00 PM", "6:30 PM", "7:00 PM"];
 
 // Weighted so the donut has a clear leader and a believable long tail.
 const SOURCES: InquirySource[] = [
@@ -65,311 +66,160 @@ const SOURCES: InquirySource[] = [
   "Website",
 ];
 
-const EVENT_TIMES = ["10:00 AM", "11:30 AM", "12:00 PM", "5:00 PM", "6:30 PM", "7:00 PM"];
-
+// "3 Days Before Event" is what makes lib/mt/notifications.ts's "order-arrived"
+// alert reachable; "Completed" is handled as its own explicit branch below,
+// not drawn from this pool.
 const WON_STAGES: StageName[] = [
-  "Confirmed", "Upcoming Event", "Half Paid", "Fully Paid",
-  "Clear to Delivered", "Ready for Pickup", "Delivered", "Completed",
-  "Order Confirmed",
+  "Confirmed", "Upcoming Event", "Half Paid", "Fully Paid", "3 Days Before Event",
+  "Clear to Delivered", "Ready for Pickup", "Delivered", "Order Confirmed",
 ];
 
 const OPEN_STAGES: StageName[] = ["New Inquiry", "Contacted", "Awaiting Confirmation"];
 
-type Recipe = {
-  pipelineStatus: PipelineStatus;
-  stageName: StageName;
-  paymentStage: PaymentStage;
-  status: OrderStatus;
-  /** Fraction of `amount` already collected. */
-  paidRatio: number;
-};
+// Package names only — purely decorative flavor text here, since this
+// module (unlike lib/orders/mock-celebrity-orders.ts) is imported directly
+// into client components and must stay synchronous, so it can't depend on
+// the live Supabase `packages` table.
+const PACKAGE_NAMES: string[] = [...menuPackages, ...grazingSpreads, ...cateringPackages, ...packedMeals]
+  .filter((p) => p.active)
+  .map((p) => p.name);
 
-const pick = <T,>(rng: () => number, list: readonly T[]): T =>
-  list[Math.floor(rng() * list.length)];
+/** Splits `total` across the 3 branches by the weighted ratios above (with jitter), summing back to exactly `total`. */
+function splitAcrossBranches(rng: () => number, total: number): { branch: string; amount: number }[] {
+  const jittered = BRANCHES.map((b) => ({ branch: b.name, weight: BRANCH_WEIGHT[b.id] * (0.9 + rng() * 0.2) }));
+  const weightSum = jittered.reduce((s, b) => s + b.weight, 0);
+  const out = jittered.map((b) => ({ branch: b.branch, amount: Math.round((b.weight / weightSum) * total) }));
+  out[out.length - 1].amount += total - out.reduce((s, b) => s + b.amount, 0);
+  return out;
+}
 
-const between = (rng: () => number, min: number, max: number): number =>
-  min + Math.floor(rng() * (max - min + 1));
+/** Splits `total` into `count` positive pieces, summing back to exactly `total`. */
+function splitIntoPieces(rng: () => number, total: number, count: number): number[] {
+  if (count <= 1) return [total];
+  const weights = Array.from({ length: count }, () => 0.4 + rng() * 0.6);
+  const weightSum = weights.reduce((a, b) => a + b, 0);
+  const amounts = weights.map((w) => Math.round((w / weightSum) * total));
+  amounts[amounts.length - 1] += total - amounts.reduce((a, b) => a + b, 0);
+  return amounts;
+}
 
-/**
- * Decide the whole status cluster at once. Keeping stage, pipeline status,
- * payment stage and paid ratio consistent is what makes the derived metrics
- * believable — a "Fully Paid" record with a balance would poison the KPIs.
- */
-function recipeFor(rng: () => number, isPast: boolean): Recipe {
-  const roll = rng();
+let recordIndex = 0;
 
-  if (isPast) {
-    // Past events are mostly settled; a few died on the vine.
-    if (roll < 0.78) {
-      return {
-        pipelineStatus: "won",
-        stageName: rng() < 0.75 ? "Completed" : "Delivered",
-        paymentStage: "Completed",
-        status: "Completed",
-        paidRatio: 1,
-      };
-    }
-    if (roll < 0.85) {
-      return {
-        pipelineStatus: "won",
-        stageName: "Completed",
-        paymentStage: "Complimentary",
-        status: "Completed",
-        paidRatio: 0,
-      };
-    }
-    if (roll < 0.94) {
-      return {
-        pipelineStatus: "lost",
-        stageName: "Cancelled",
-        paymentStage: "Cancelled",
-        status: "Cancelled",
-        paidRatio: rng() < 0.5 ? 0.25 : 0,
-      };
-    }
-    return {
-      pipelineStatus: "abandoned",
-      stageName: "Contacted",
-      paymentStage: "New Inquiry",
-      status: "Cancelled",
-      paidRatio: 0,
-    };
-  }
-
-  if (roll < 0.34) {
-    return {
-      pipelineStatus: "won",
-      stageName: pick(rng, WON_STAGES),
-      paymentStage: "Full Payment",
-      status: "Confirmed",
-      paidRatio: 1,
-    };
-  }
-  if (roll < 0.6) {
-    return {
-      pipelineStatus: "won",
-      stageName: rng() < 0.5 ? "Half Paid" : "Awaiting Balance",
-      paymentStage: "Partial Payment",
-      status: "For Preparation",
-      paidRatio: 0.5,
-    };
-  }
-  if (roll < 0.78) {
-    return {
-      pipelineStatus: "open",
-      stageName: "Awaiting Confirmation",
-      paymentStage: "Partial Payment",
-      status: "Pending",
-      paidRatio: 0.3,
-    };
-  }
-  if (roll < 0.94) {
-    return {
-      pipelineStatus: "open",
-      stageName: pick(rng, OPEN_STAGES),
-      paymentStage: "New Inquiry",
-      status: "New",
-      paidRatio: 0,
-    };
-  }
+function baseFields(rng: () => number, period: FinancialPeriod) {
+  recordIndex++;
+  const celeb = pick(rng, CELEBRITIES);
+  const spanDays = daysUntil(period.endDate, period.startDate) ?? 14;
+  const eventDate = addDays(period.startDate, between(rng, 0, spanDays));
+  const createdDate = addDays(eventDate, -between(rng, 20, 120));
+  const handle = `${celeb.first}.${celeb.last}`.toLowerCase().replace(/\s+/g, "");
   return {
-    pipelineStatus: "lost",
-    stageName: "Cancelled",
-    paymentStage: "Cancelled",
-    status: "Cancelled",
-    paidRatio: 0,
+    id: `OPP-${1000 + recordIndex}`,
+    reference: `KP-${24000 + recordIndex}`,
+    name: `${celeb.first} ${celeb.last}`,
+    email: `${handle}@gmail.com`,
+    phone: `09${between(rng, 10, 39)} ${between(rng, 100, 999)} ${between(rng, 1000, 9999)}`,
+    eventDate,
+    eventTime: pick(rng, EVENT_TIMES),
+    createdDate,
+    lastModified: `${addDays(eventDate, -between(rng, 0, 18))}T0${between(rng, 1, 9)}:${String(between(rng, 10, 59)).padStart(2, "0")}:00+08:00`,
+    eventType: pick(rng, EVENT_TYPES),
+    packageName: pick(rng, PACKAGE_NAMES),
+    pax: between(rng, 20, 300),
+    source: pick(rng, SOURCES),
+    notes: "",
   };
 }
 
-function build(count: number, today: string): Opportunity[] {
+/** A confirmed, revenue-bearing booking — `amount` is dictated by the exact-tie split above, not randomly derived. */
+function buildWon(rng: () => number, branch: string, amount: number, period: FinancialPeriod): Opportunity {
+  const completed = rng() < 0.8;
+  const stageName: StageName = completed ? "Completed" : pick(rng, WON_STAGES);
+  const paymentStage: PaymentStage = completed ? "Completed" : "Full Payment";
+  const status: OrderStatus = completed ? "Completed" : "Confirmed";
+  return {
+    ...baseFields(rng, period),
+    branch,
+    stageName,
+    pipelineStatus: "won",
+    paymentStage,
+    amount,
+    amountPaid: amount,
+    status,
+  };
+}
+
+/** Open pipeline work — future periods' un-won estimate, or a still-negotiating deal inside an already-actual period. */
+function buildOpen(rng: () => number, branch: string, targetAmount: number, period: FinancialPeriod): Opportunity {
+  const partial = rng() < 0.6;
+  const paymentStage: PaymentStage = partial ? "Partial Payment" : "New Inquiry";
+  const stageName: StageName = partial ? (rng() < 0.5 ? "Half Paid" : "Awaiting Balance") : pick(rng, OPEN_STAGES);
+  const status: OrderStatus = partial ? "For Preparation" : "New";
+  const amount = Math.max(5_000, Math.round(targetAmount * (0.4 + rng() * 0.5)));
+  const amountPaid = partial ? Math.round(amount * 0.4) : 0;
+  return {
+    ...baseFields(rng, period),
+    branch,
+    stageName,
+    pipelineStatus: "open",
+    paymentStage,
+    amount,
+    amountPaid,
+    status,
+  };
+}
+
+/** A deal that fell through — feeds Refunded/Lost and the cancellation notification, doesn't count toward any revenue total. */
+function buildLost(rng: () => number, branch: string, period: FinancialPeriod): Opportunity {
+  const amount = between(rng, 15_000, 90_000);
+  const amountPaid = rng() < 0.5 ? Math.round(amount * 0.25) : 0;
+  return {
+    ...baseFields(rng, period),
+    branch,
+    stageName: "Cancelled",
+    pipelineStatus: "lost" as PipelineStatus,
+    paymentStage: "Cancelled",
+    amount,
+    amountPaid,
+    status: "Cancelled",
+  };
+}
+
+function build(): Opportunity[] {
   const rng = seeded(20260811);
-  const rows: Opportunity[] = [];
+  const out: Opportunity[] = [];
 
-  for (let i = 0; i < count; i++) {
-    // Spread event dates across the last 11 months and the next 2.
-    const offset = between(rng, -330, 60);
-    const eventDate = addDays(today, offset);
-    const isPast = offset < 0;
-
-    const recipe = recipeFor(rng, isPast);
-    const pax = between(rng, 4, 60) * 5;
-    const pricePerHead = between(rng, 13, 26) * 50;
-    const amount = pax * pricePerHead;
-
-    const first = pick(rng, FIRST_NAMES);
-    const last = pick(rng, LAST_NAMES);
-    const name = `${first} ${last}`;
-    const handle = `${first}.${last}`.toLowerCase().replace(/\s+/g, "");
-
-    // Inquiries land 20–120 days before the event.
-    const createdDate = addDays(eventDate, -between(rng, 20, 120));
-
-    rows.push({
-      id: `OPP-${String(1000 + i)}`,
-      reference: `KP-${String(24000 + i)}`,
-      name,
-      email: `${handle}@gmail.com`,
-      phone: `09${between(rng, 10, 39)} ${between(rng, 100, 999)} ${between(rng, 1000, 9999)}`,
-      // Drawn rather than round-robined: cycling by index correlates the branch
-      // with the status roll, which made whole panels come out single-branch.
-      branch: pick(rng, BRANCH_NAMES),
-      eventDate,
-      eventTime: pick(rng, EVENT_TIMES),
-      createdDate,
-      lastModified: `${addDays(eventDate, -between(rng, 0, 18))}T0${between(rng, 1, 9)}:${String(between(rng, 10, 59))}:00+08:00`,
-      eventType: pick(rng, EVENT_TYPES),
-      packageName: pick(rng, PACKAGES),
-      stageName: recipe.stageName,
-      pipelineStatus: recipe.pipelineStatus,
-      paymentStage: recipe.paymentStage,
-      amount,
-      amountPaid: Math.round(amount * recipe.paidRatio),
-      pax,
-      status: recipe.status,
-      source: pick(rng, SOURCES),
-      notes: "",
-    });
+  for (const period of financialPeriods) {
+    if (period.kind === "actual") {
+      // The exact-tie won records.
+      for (const { branch, amount } of splitAcrossBranches(rng, period.sales)) {
+        const count = between(rng, 1, 2);
+        for (const piece of splitIntoPieces(rng, amount, count)) {
+          out.push(buildWon(rng, branch, piece, period));
+        }
+      }
+      // Flavor — variety for New Inquiries / the donut / Refunded-Lost / notifications,
+      // not counted toward any exact total.
+      if (rng() < 0.4) out.push(buildLost(rng, pick(rng, BRANCH_NAMES), period));
+      const openFlavor = between(rng, 0, 2);
+      for (let i = 0; i < openFlavor; i++) {
+        out.push(buildOpen(rng, pick(rng, BRANCH_NAMES), period.sales / 6, period));
+      }
+    } else {
+      // Projected periods: everything is still open pipeline work.
+      for (const { branch, amount } of splitAcrossBranches(rng, period.sales)) {
+        const count = between(rng, 1, 2);
+        for (const piece of splitIntoPieces(rng, amount, count)) {
+          out.push(buildOpen(rng, branch, piece, period));
+        }
+      }
+      if (rng() < 0.15) out.push(buildLost(rng, pick(rng, BRANCH_NAMES), period));
+    }
   }
 
-  return rows;
+  return out;
 }
 
-/**
- * Records pinned to specific dates so the time-sensitive parts of the UI are
- * never empty: today's order table, the "3 days out" hand-off, an unsettled
- * balance on an event that is happening now, and a fresh cancellation.
- */
-function anchored(today: string): Opportunity[] {
-  const base = {
-    email: "",
-    notes: "",
-    eventTime: "6:00 PM",
-    source: "Facebook" as InquirySource,
-  };
-
-  return [
-    {
-      ...base,
-      id: "OPP-9001",
-      reference: "KP-24901",
-      name: "Corazon Villanueva",
-      email: "corazon.villanueva@gmail.com",
-      phone: "0917 220 4471",
-      branch: "Quezon City",
-      eventDate: today,
-      eventTime: "12:00 PM",
-      createdDate: addDays(today, -45),
-      lastModified: `${addDays(today, -2)}T09:15:00+08:00`,
-      eventType: "Wedding Reception",
-      packageName: "Pamana Heritage Buffet",
-      stageName: "Clear to Delivered" as StageName,
-      pipelineStatus: "won" as PipelineStatus,
-      paymentStage: "Full Payment" as PaymentStage,
-      amount: 171000,
-      amountPaid: 171000,
-      pax: 180,
-      status: "Out for Delivery" as OrderStatus,
-      source: "Referral" as InquirySource,
-    },
-    {
-      ...base,
-      id: "OPP-9002",
-      reference: "KP-24902",
-      name: "Eduardo Pascual",
-      email: "ed.pascual@outlook.com",
-      phone: "0918 552 3390",
-      branch: "Makati",
-      eventDate: today,
-      eventTime: "6:30 PM",
-      createdDate: addDays(today, -30),
-      lastModified: `${addDays(today, -1)}T14:02:00+08:00`,
-      eventType: "Corporate Gala",
-      packageName: "Corporate Bento",
-      stageName: "Ready for Pickup" as StageName,
-      pipelineStatus: "won" as PipelineStatus,
-      paymentStage: "Full Payment" as PaymentStage,
-      amount: 210000,
-      amountPaid: 210000,
-      pax: 250,
-      status: "Setup Ongoing" as OrderStatus,
-      source: "Website" as InquirySource,
-    },
-    {
-      // Event is today and the balance is still open — drives the danger alert.
-      ...base,
-      id: "OPP-9003",
-      reference: "KP-24903",
-      name: "Lourdes Domingo",
-      email: "lourdes.domingo@gmail.com",
-      phone: "0920 114 6602",
-      branch: "Cebu",
-      eventDate: today,
-      eventTime: "5:00 PM",
-      createdDate: addDays(today, -22),
-      lastModified: `${today}T08:40:00+08:00`,
-      eventType: "Debut",
-      packageName: "Handaan Silver",
-      stageName: "Awaiting Balance" as StageName,
-      pipelineStatus: "won" as PipelineStatus,
-      paymentStage: "Partial Payment" as PaymentStage,
-      amount: 96000,
-      amountPaid: 48000,
-      pax: 120,
-      status: "Preparing" as OrderStatus,
-      source: "Instagram" as InquirySource,
-    },
-    {
-      // Just handed to the kitchen.
-      ...base,
-      id: "OPP-9004",
-      reference: "KP-24904",
-      name: "Rafael Castillo",
-      email: "rafael.castillo@gmail.com",
-      phone: "0917 664 9021",
-      branch: "Quezon City",
-      eventDate: addDays(today, 3),
-      createdDate: addDays(today, -60),
-      lastModified: `${today}T07:20:00+08:00`,
-      eventType: "Fiesta Reunion",
-      packageName: "Fiesta Grazing Table",
-      stageName: "3 Days Before Event" as StageName,
-      pipelineStatus: "won" as PipelineStatus,
-      paymentStage: "Partial Payment" as PaymentStage,
-      amount: 84500,
-      amountPaid: 42250,
-      pax: 130,
-      status: "For Preparation" as OrderStatus,
-      source: "Messenger" as InquirySource,
-    },
-    {
-      // Fresh cancellation — drives the "stop preparation" alert.
-      ...base,
-      id: "OPP-9005",
-      reference: "KP-24905",
-      name: "Perlita Salazar",
-      email: "perlita.salazar@yahoo.com",
-      phone: "0921 330 8845",
-      branch: "Makati",
-      eventDate: addDays(today, 1),
-      createdDate: addDays(today, -40),
-      lastModified: `${today}T06:05:00+08:00`,
-      eventType: "Birthday Party",
-      packageName: "Merienda Cena",
-      stageName: "Cancelled" as StageName,
-      pipelineStatus: "lost" as PipelineStatus,
-      paymentStage: "Cancelled" as PaymentStage,
-      amount: 42000,
-      amountPaid: 10500,
-      pax: 60,
-      status: "Cancelled" as OrderStatus,
-      source: "Walk-in" as InquirySource,
-    },
-  ];
-}
-
-const TODAY = todayManila();
-
-export const opportunities: Opportunity[] = [...anchored(TODAY), ...build(140, TODAY)];
+export const opportunities: Opportunity[] = build();
 
 /** Receipts uploaded and waiting on a human — feeds the review notification. */
 export const pendingReceipts = 3;

@@ -54,6 +54,12 @@ const STATUS_STYLES: Record<string, string> = {
   Partial: "bg-yellow-100 text-yellow-700",
   New: "bg-blue-100 text-blue-700",
   "Fully Paid": "bg-emerald-100 text-emerald-700",
+  // orders.payment_status (lib/orders/types.ts PAYMENT_STATUSES).
+  Unpaid: "bg-gray-100 text-gray-600",
+  "Awaiting Verification": "bg-blue-100 text-blue-700",
+  "Partially Paid": "bg-yellow-100 text-yellow-700",
+  "Deposit Paid": "bg-yellow-100 text-yellow-700",
+  Paid: "bg-emerald-100 text-emerald-700",
   "New Inquiry": "bg-blue-100 text-blue-700",
   "Partial Payment": "bg-yellow-100 text-yellow-700",
   "Full Payment": "bg-emerald-100 text-emerald-700",

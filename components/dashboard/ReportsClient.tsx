@@ -12,7 +12,7 @@ import { useDateRange } from "@/components/providers/DateRangeProvider";
 import { ALL_BRANCHES, BRANCHES } from "@/lib/mt/branches";
 import { inRange } from "@/lib/mt/dates";
 import { toBookingRows, toCustomerRows, toInquiryRows } from "@/lib/orders/derived";
-import { branchTotals, buildMonthlySeries } from "@/lib/reports/monthly";
+import { branchTotals, buildMonthlySeries, topPackagesByOrders } from "@/lib/reports/monthly";
 import type { OrderRecord } from "@/lib/orders/types";
 
 type ReportDef<Row extends { id: string }> = {
@@ -63,20 +63,10 @@ export default function ReportsClient({ orders }: { orders: OrderRecord[] }) {
     [periodOrders, range],
   );
 
-  const serviceType = useMemo(() => {
-    const groups = new Map<string, { orders: number; revenue: number }>();
-    for (const o of periodOrders) {
-      if (o.status === "Cancelled") continue;
-      const key = o.packageName || "Unspecified";
-      const g = groups.get(key) ?? { orders: 0, revenue: 0 };
-      g.orders += 1;
-      g.revenue += o.total;
-      groups.set(key, g);
-    }
-    return [...groups.entries()]
-      .map(([packageName, g]) => ({ id: packageName, packageName, ...g }))
-      .sort((a, b) => b.revenue - a.revenue);
-  }, [periodOrders]);
+  const serviceType = useMemo(
+    () => topPackagesByOrders(periodOrders).map((g) => ({ id: g.packageName, ...g })),
+    [periodOrders],
+  );
 
   const reports: ReportDef<any>[] = [
     {

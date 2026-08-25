@@ -11,14 +11,75 @@ import ScrollX from "@/components/ui/ScrollX";
 import { formatPeso } from "@/lib/format";
 import { createIngredientAction } from "@/app/dashboard/inventory/actions";
 import { addRecipeItemAction, createRecipeAction, deleteRecipeAction, removeRecipeItemAction, updateRecipeAction } from "@/app/dashboard/costing/actions";
-import { cogs, grossMargin, grossMarginPct, ingredientCost, type NewRecipe, type RecipeWithItems } from "@/lib/costing/types";
+import {
+  BASIS_LABELS,
+  BASIS_UNIT_LABELS,
+  RECIPE_BASES,
+  cogs,
+  grossMargin,
+  grossMarginPct,
+  ingredientCost,
+  type NewRecipe,
+  type RecipeBasis,
+  type RecipeWithItems,
+} from "@/lib/costing/types";
+import { dishKey } from "@/lib/menu/dish-catalog";
 import type { Ingredient } from "@/lib/inventory/types";
 import type { StockMovement } from "@/lib/inventory/types";
 
 const TABS = ["Recipes", "Margins", "Price History", "Packaging", "Reports"] as const;
 type Tab = (typeof TABS)[number];
 
-const EMPTY_RECIPE: NewRecipe = { name: "", size: "", category: "", srp: 0, laborCost: 0, overheadCost: 0 };
+const EMPTY_RECIPE: NewRecipe = {
+  name: "",
+  size: "",
+  category: "",
+  srp: 0,
+  laborCost: 0,
+  overheadCost: 0,
+  dishKey: null,
+  basis: "per_pax",
+  yieldQty: 1,
+};
+
+// Shared by the Add and Detail modals: pick which storefront dish a recipe
+// costs, so an order carrying that dish name can be turned into ingredient
+// requirements (lib/menu/dish-catalog.ts). "Not linked" keeps the old
+// free-form behaviour — the recipe still costs out, it just never feeds
+// requirements planning.
+function DishLinkSelect({
+  value,
+  options,
+  onChange,
+}: {
+  value: string | null;
+  options: string[];
+  onChange: (dishKey: string | null) => void;
+}) {
+  const selected = value ? (options.find((name) => dishKey(name) === value) ?? "") : "";
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-medium text-gray-500">Storefront Dish</span>
+      <select
+        value={selected}
+        onChange={(e) => onChange(e.target.value ? dishKey(e.target.value) : null)}
+        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400"
+      >
+        <option value="">Not linked</option>
+        {options.map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+      </select>
+      {value && !selected && (
+        <span className="mt-1 block text-[11px] text-amber-600">
+          Linked to “{value}”, which no package or catalog offers any more.
+        </span>
+      )}
+    </label>
+  );
+}
 const EMPTY_INGREDIENT_DRAFT = { name: "", category: "", baseUnit: "pc", unitCost: 0 };
 
 function marginTone(pct: number): BadgeTone {
@@ -31,10 +92,13 @@ export default function CostingClient({
   recipes: initialRecipes,
   ingredients: initialIngredients,
   priceHistory,
+  dishOptions,
 }: {
   recipes: RecipeWithItems[];
   ingredients: Ingredient[];
   priceHistory: StockMovement[];
+  /** Every dish name a recipe can be linked to — see mappableDishNames(). */
+  dishOptions: string[];
 }) {
   const [tab, setTab] = useState<Tab>("Recipes");
   const [recipes, setRecipes] = useState(initialRecipes);
@@ -376,6 +440,21 @@ export default function CostingClient({
               <input value={addDraft.category} onChange={(e) => setAddDraft((d) => ({ ...d, category: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400" />
             </label>
           </div>
+          <DishLinkSelect value={addDraft.dishKey} options={dishOptions} onChange={(k) => setAddDraft((d) => ({ ...d, dishKey: k }))} />
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-gray-500">Scales By</span>
+              <select value={addDraft.basis} onChange={(e) => setAddDraft((d) => ({ ...d, basis: e.target.value as RecipeBasis }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400">
+                {RECIPE_BASES.map((b) => (
+                  <option key={b} value={b}>{BASIS_LABELS[b]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-gray-500">Batch Serves ({BASIS_UNIT_LABELS[addDraft.basis]})</span>
+              <input type="number" min={0.01} step="any" value={addDraft.yieldQty} onChange={(e) => setAddDraft((d) => ({ ...d, yieldQty: Number(e.target.value) || 1 }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400" />
+            </label>
+          </div>
           <div className="grid grid-cols-3 gap-3">
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-gray-500">SRP (₱)</span>
@@ -401,6 +480,25 @@ export default function CostingClient({
       <Modal isOpen={detailRecipe !== null} onClose={() => setDetailId(null)} title={detailRecipe ? `${detailRecipe.name}${detailRecipe.size ? ` — ${detailRecipe.size}` : ""}` : ""} size="2xl">
         {detailRecipe && (
           <div className="space-y-5">
+            <div className="grid grid-cols-3 gap-3">
+              <DishLinkSelect
+                value={detailRecipe.dishKey}
+                options={dishOptions}
+                onChange={(k) => saveRecipeFields({ dishKey: k })}
+              />
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-500">Scales By</span>
+                <select value={detailRecipe.basis} onChange={(e) => saveRecipeFields({ basis: e.target.value as RecipeBasis })} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400">
+                  {RECIPE_BASES.map((b) => (
+                    <option key={b} value={b}>{BASIS_LABELS[b]}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-500">Batch Serves ({BASIS_UNIT_LABELS[detailRecipe.basis]})</span>
+                <input type="number" min={0.01} step="any" defaultValue={detailRecipe.yieldQty} onBlur={(e) => saveRecipeFields({ yieldQty: Number(e.target.value) || 1 })} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400" />
+              </label>
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-gray-500">SRP (₱)</span>

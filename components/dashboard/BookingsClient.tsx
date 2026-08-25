@@ -1,17 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, CalendarCheck, CalendarClock, Search, List as ListIcon, Calendar as CalendarIcon } from "lucide-react";
+import { CalendarDays, CalendarCheck, CalendarClock, Search, CalendarRange } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import Badge, { BadgeTone } from "@/components/ui/Badge";
 import DataTable, { Column } from "@/components/ui/DataTable";
-import BookingsCalendar from "@/components/dashboard/BookingsCalendar";
+import Link from "next/link";
 import { useBranch } from "@/components/providers/BranchProvider";
+import { useMockOrderStatus } from "@/components/providers/MockOrderStatusProvider";
 import { ordersInBranch } from "@/lib/mt/branches";
 import { toBookingRows } from "@/lib/orders/derived";
 import type { OrderRecord } from "@/lib/orders/types";
 import type { Booking } from "@/lib/dummy-data";
-import type { BlockedDate } from "@/lib/bookings/blocked-dates";
 
 const statusTone: Record<Booking["status"], BadgeTone> = {
   Confirmed: "green",
@@ -40,16 +40,19 @@ const columns: Column<Booking>[] = [
 ];
 
 export default function BookingsClient({
-  orders,
-  blockedDates,
+  orders: initialOrders,
 }: {
   orders: OrderRecord[];
-  blockedDates: BlockedDate[];
 }) {
   const { selectedBranch } = useBranch();
-  const [view, setView] = useState<"list" | "calendar">("list");
+  const { getStatus } = useMockOrderStatus();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("All Statuses");
+
+  // Reflects a celebrity (mock) order's status if it's been moved on the
+  // Kitchen board or Orders page — see MockOrderStatusProvider. No-op for
+  // real orders, whose status always comes straight from Supabase.
+  const orders = useMemo(() => initialOrders.map((o) => ({ ...o, status: getStatus(o) })), [initialOrders, getStatus]);
 
   const scopedOrders = useMemo(() => ordersInBranch(orders, selectedBranch), [orders, selectedBranch]);
 
@@ -96,35 +99,17 @@ export default function BookingsClient({
             </option>
           ))}
         </select>
-        <div className="flex overflow-hidden rounded-lg border border-gray-300">
-          <button
-            type="button"
-            onClick={() => setView("list")}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors ${
-              view === "list" ? "bg-gold-500 text-white" : "text-slate-600 hover:bg-gray-50"
-            }`}
-          >
-            <ListIcon size={14} /> List
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("calendar")}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors ${
-              view === "calendar" ? "bg-gold-500 text-white" : "text-slate-600 hover:bg-gray-50"
-            }`}
-          >
-            <CalendarIcon size={14} /> Calendar
-          </button>
-        </div>
+        <Link
+          href="/dashboard/calendar"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-gray-50"
+        >
+          <CalendarRange size={14} /> Open Catering Calendar
+        </Link>
       </div>
 
-      {view === "list" ? (
-        <div className="mt-4">
-          <DataTable columns={columns} rows={filteredBookings} />
-        </div>
-      ) : (
-        <BookingsCalendar orders={scopedOrders} blockedDates={blockedDates} />
-      )}
+      <div className="mt-4">
+        <DataTable columns={columns} rows={filteredBookings} />
+      </div>
     </>
   );
 }

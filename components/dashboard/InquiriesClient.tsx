@@ -6,6 +6,7 @@ import StatCard from "@/components/ui/StatCard";
 import Badge, { BadgeTone } from "@/components/ui/Badge";
 import DataTable, { Column } from "@/components/ui/DataTable";
 import { useBranch } from "@/components/providers/BranchProvider";
+import { useMockOrderStatus } from "@/components/providers/MockOrderStatusProvider";
 import { ordersInBranch } from "@/lib/mt/branches";
 import { toInquiryRows } from "@/lib/orders/derived";
 import type { OrderRecord } from "@/lib/orders/types";
@@ -29,8 +30,14 @@ const columns: Column<Inquiry>[] = [
   { key: "status", header: "Status", render: (r) => <Badge label={r.status} tone={statusTone[r.status]} /> },
 ];
 
-export default function InquiriesClient({ orders }: { orders: OrderRecord[] }) {
+export default function InquiriesClient({ orders: initialOrders }: { orders: OrderRecord[] }) {
   const { selectedBranch } = useBranch();
+  const { getStatus } = useMockOrderStatus();
+
+  // Reflects a celebrity (mock) order's status if it's been moved on the
+  // Kitchen board or Orders page — see MockOrderStatusProvider. No-op for
+  // real orders, whose status always comes straight from Supabase.
+  const orders = useMemo(() => initialOrders.map((o) => ({ ...o, status: getStatus(o) })), [initialOrders, getStatus]);
 
   const inquiries = useMemo(
     () => toInquiryRows(ordersInBranch(orders, selectedBranch)),

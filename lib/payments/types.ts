@@ -58,3 +58,24 @@ export type PaymentQueueRow = PaymentRecord & {
 export function balanceDue(o: { total: number; amountPaid: number }): number {
   return Math.max(0, o.total - o.amountPaid);
 }
+
+/** Mirrors herbies' public.recompute_order_payment_state() CASE
+ * (herbies/supabase/payments.sql §5) on the TypeScript side, so a preview
+ * ("what will payment_status become if this total changes") never disagrees
+ * with what the trigger — or this dashboard's own
+ * recompute_order_payment_state_for() SQL twin, supabase/change_requests.sql
+ * — would actually write. If that CASE ever changes, this one must change
+ * with it. */
+export function derivePaymentStatus(input: {
+  total: number;
+  depositAmount: number;
+  verifiedAmount: number;
+  pendingCount: number;
+}): OrderPaymentStatus {
+  const { total, depositAmount, verifiedAmount, pendingCount } = input;
+  if (verifiedAmount >= total) return "Paid";
+  if (pendingCount > 0) return "Awaiting Verification";
+  if (verifiedAmount >= depositAmount && verifiedAmount > 0) return "Deposit Paid";
+  if (verifiedAmount > 0) return "Partially Paid";
+  return "Unpaid";
+}

@@ -9,7 +9,9 @@ import { getBranchById } from "@/lib/mt/branches";
 import { inRange, todayManila } from "@/lib/mt/dates";
 import type { DateRange } from "@/lib/mt/types";
 import type { OrderRecord, OrderStatus } from "@/lib/orders/types";
+import type { PaymentQueueRow } from "@/lib/payments/types";
 import type { MonthlyPoint } from "@/lib/mt/revenue";
+import { monthlyRollup, PACKAGE_AVG_PRICE } from "@/lib/owner-financials/mock";
 
 const MONTH_LABELS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -49,25 +51,32 @@ function monthInfo(monthsAgo: number, today = todayManila()) {
   };
 }
 
-// Modest, believable per-branch figures — 2 months ago, then last month.
-const DUMMY_BASE: Record<string, { revenue: number; orders: number; bookings: number; cancelledValue: number; pendingValue: number; topPackage: string }[]> = {
-  cavite: [
-    { revenue: 168_000, orders: 9, bookings: 6, cancelledValue: 12_000, pendingValue: 24_000, topPackage: "Pamana Heritage Buffet" },
-    { revenue: 205_000, orders: 11, bookings: 8, cancelledValue: 8_000, pendingValue: 31_000, topPackage: "Pamana Heritage Buffet" },
-  ],
-  laguna: [
-    { revenue: 92_000, orders: 5, bookings: 3, cancelledValue: 6_000, pendingValue: 14_000, topPackage: "Fiesta Grazing Table" },
-    { revenue: 118_000, orders: 6, bookings: 4, cancelledValue: 0, pendingValue: 19_000, topPackage: "Boodle Fight Feast" },
-  ],
-  "metro-manila": [
-    { revenue: 134_000, orders: 7, bookings: 5, cancelledValue: 9_500, pendingValue: 21_000, topPackage: "Corporate Bento" },
-    { revenue: 151_000, orders: 8, bookings: 6, cancelledValue: 4_000, pendingValue: 26_500, topPackage: "Corporate Bento" },
-  ],
+// Per-branch top package, purely cosmetic flavor text (not tallied) — 2
+// months ago, then last month. Kept as the original strings so Reports and
+// Branch Performance still read the way they did before this file started
+// pulling its revenue from lib/owner-financials/mock.ts.
+const TOP_PACKAGE: Record<string, [string, string]> = {
+  cavite: ["Pamana Heritage Buffet", "Pamana Heritage Buffet"],
+  laguna: ["Fiesta Grazing Table", "Boodle Fight Feast"],
+  "metro-manila": ["Corporate Bento", "Corporate Bento"],
 };
 
+// Orders/bookings/cancelled/pending are all derived from the branch's
+// monthly revenue in lib/owner-financials/mock.ts's monthlyRollup — keyed by
+// calendar month (1–12) rather than a specific year, so this still lines up
+// even if "today" drifts outside the mock's modeled year.
 function dummyMonths(branch: Branch): DummyMonth[] {
-  const base = DUMMY_BASE[branch.id] ?? [];
-  return base.map((b, i) => ({ ...monthInfo(2 - i), ...b }));
+  return [2, 1].map((monthsAgo, i) => {
+    const info = monthInfo(monthsAgo);
+    const monthIndex = Number(info.monthKey.slice(5, 7)) - 1;
+    const revenue = monthlyRollup[monthIndex]?.byBranch[branch.id] ?? 0;
+    const orders = Math.max(1, Math.round(revenue / PACKAGE_AVG_PRICE));
+    const bookings = Math.max(1, Math.round(orders * 0.7));
+    const cancelledValue = Math.round(revenue * 0.05);
+    const pendingValue = Math.round(revenue * 0.15);
+    const topPackage = TOP_PACKAGE[branch.id]?.[i] ?? "—";
+    return { ...info, revenue, orders, bookings, cancelledValue, pendingValue, topPackage };
+  });
 }
 
 function branchOf(order: OrderRecord): Branch | undefined {
@@ -165,4 +174,65 @@ export function branchTotals(orders: OrderRecord[], branch: Branch, range: DateR
     pendingPayments: pendingValue,
     topPackage,
   };
+}
+
+export type SalesKpis = {
+  confirmedRevenue: number;
+  pipelineValue: number;
+  newInquiryValue: number;
+  lostCancelled: number;
+};
+
+/**
+ * The Sales page's top KPI row. `periodOrders`/`periodPayments` must already
+ * be branch- and date-scoped by the caller — this only sums.
+ *
+ * `confirmedRevenue` and `newInquiryValue` intentionally overlap (a "Pending
+ * Confirmation" order's value counts in both), matching `branchTotals`'s own
+ * revenue definition where every non-cancelled status counts as revenue.
+ */
+export function salesKpis(periodOrders: OrderRecord[], periodPayments: PaymentQueueRow[]): SalesKpis {
+  let confirmedRevenue = 0;
+  let newInquiryValue = 0;
+  let lostCancelled = 0;
+
+  for (const o of periodOrders) {
+    if (o.status === "Cancelled") {
+      lostCancelled += o.total;
+      continue;
+    }
+    confirmedRevenue += o.total;
+    if (o.status === "Pending Confirmation") newInquiryValue += o.total;
+  }
+
+  // Deduped by order — a partially-paid order can have multiple payment rows.
+  const seen = new Set<string>();
+  let pipelineValue = 0;
+  for (const p of periodPayments) {
+    if (seen.has(p.orderId)) continue;
+    if (p.orderPaymentStatus === "Partially Paid" || p.orderPaymentStatus === "Deposit Paid") {
+      pipelineValue += p.orderTotal;
+      seen.add(p.orderId);
+    }
+  }
+
+  return { confirmedRevenue, pipelineValue, newInquiryValue, lostCancelled };
+}
+
+export type PackageStat = { packageName: string; orders: number; revenue: number };
+
+/** Revenue and order count per package, revenue-sorted descending. Cancelled orders don't count. */
+export function topPackagesByOrders(orders: OrderRecord[]): PackageStat[] {
+  const groups = new Map<string, { orders: number; revenue: number }>();
+  for (const o of orders) {
+    if (o.status === "Cancelled") continue;
+    const key = o.packageName || "Unspecified";
+    const g = groups.get(key) ?? { orders: 0, revenue: 0 };
+    g.orders += 1;
+    g.revenue += o.total;
+    groups.set(key, g);
+  }
+  return [...groups.entries()]
+    .map(([packageName, g]) => ({ packageName, ...g }))
+    .sort((a, b) => b.revenue - a.revenue);
 }

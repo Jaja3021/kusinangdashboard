@@ -8,8 +8,8 @@ export type OrderStatus =
   | "Confirmed"
   | "Preparing"
   | "Cooking"
-  | "Ready for Delivery"
   | "Completed"
+  | "Ready for Delivery"
   | "Cancelled";
 
 export const ORDER_STATUSES: OrderStatus[] = [
@@ -17,17 +17,41 @@ export const ORDER_STATUSES: OrderStatus[] = [
   "Confirmed",
   "Preparing",
   "Cooking",
-  "Ready for Delivery",
   "Completed",
+  "Ready for Delivery",
   "Cancelled",
+];
+
+// Mirrors public.orders.payment_status (herbies' supabase/payments.sql §2).
+// DERIVED in the database by a trigger from the payments table — never
+// written directly by this dashboard, only read.
+export type PaymentStatus =
+  | "Unpaid"
+  | "Awaiting Verification"
+  | "Partially Paid"
+  | "Deposit Paid"
+  | "Paid";
+
+export const PAYMENT_STATUSES: PaymentStatus[] = [
+  "Unpaid",
+  "Awaiting Verification",
+  "Partially Paid",
+  "Deposit Paid",
+  "Paid",
 ];
 
 export type OrderRecord = {
   id: string;
   orderNumber: string;
   status: OrderStatus;
+  paymentStatus: PaymentStatus;
 
   packageName: string;
+  /** The package's Menu-page Group ("Tray Orders" | "Grazing" | "Full-Service
+   * Catering", or a static-catalog group name as a fallback) — only ever set
+   * on mock orders (lib/orders/mock-celebrity-orders.ts); real Supabase rows
+   * leave this undefined, since `orders` has no such column. */
+  packageGroup?: string | null;
   quantityLabel: string | null;
   pax: number | null;
 

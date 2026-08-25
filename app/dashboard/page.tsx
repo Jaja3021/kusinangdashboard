@@ -6,8 +6,9 @@ import { todaysOrders } from "@/lib/orders/today";
 export const dynamic = "force-dynamic";
 
 export default async function OverviewPage() {
+  const today = todayManila();
   const orders = await getOrders();
-  const todayOrders = todaysOrders(orders, todayManila());
+  const todayOrders = todaysOrders(orders, today);
 
   return <OverviewClient todayOrders={todayOrders} />;
 }

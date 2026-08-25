@@ -1,16 +1,19 @@
 import PageHeader from "@/components/ui/PageHeader";
 import InquiriesClient from "@/components/dashboard/InquiriesClient";
 import { getOrders } from "@/lib/orders/data";
+import { getPackagesData } from "@/lib/menu/data";
+import { buildMockCelebrityOrders } from "@/lib/orders/mock-celebrity-orders";
 
 export const dynamic = "force-dynamic";
 
 export default async function InquiriesPage() {
-  const orders = await getOrders();
+  const [orders, packages] = await Promise.all([getOrders(), getPackagesData()]);
+  const mockOrders = buildMockCelebrityOrders(packages);
 
   return (
     <div>
       <PageHeader title="Inquiries" subtitle="Leads collected from the website, phone, and walk-ins." />
-      <InquiriesClient orders={orders} />
+      <InquiriesClient orders={[...orders, ...mockOrders]} />
     </div>
   );
 }

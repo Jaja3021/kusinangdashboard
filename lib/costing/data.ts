@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity-log/data";
 import { formatPeso } from "@/lib/format";
-import type { NewRecipe, Recipe, RecipeItem, RecipeWithItems } from "./types";
+import type { NewRecipe, Recipe, RecipeBasis, RecipeItem, RecipeWithItems } from "./types";
 
 type RecipeRow = {
   id: string;
@@ -11,6 +11,9 @@ type RecipeRow = {
   srp: number;
   labor_cost: number;
   overhead_cost: number;
+  dish_key: string | null;
+  basis: RecipeBasis;
+  yield_qty: number;
 };
 
 type RecipeItemRow = {
@@ -22,7 +25,7 @@ type RecipeItemRow = {
   ingredients: { name: string; base_unit: string } | { name: string; base_unit: string }[] | null;
 };
 
-const RECIPE_COLUMNS = "id, name, size, category, srp, labor_cost, overhead_cost";
+const RECIPE_COLUMNS = "id, name, size, category, srp, labor_cost, overhead_cost, dish_key, basis, yield_qty";
 
 function rowToRecipe(row: RecipeRow): Recipe {
   return {
@@ -33,6 +36,9 @@ function rowToRecipe(row: RecipeRow): Recipe {
     srp: row.srp,
     laborCost: row.labor_cost,
     overheadCost: row.overhead_cost,
+    dishKey: row.dish_key,
+    basis: row.basis,
+    yieldQty: row.yield_qty,
   };
 }
 
@@ -85,6 +91,9 @@ export async function createRecipe(recipe: NewRecipe): Promise<Recipe> {
       srp: recipe.srp,
       labor_cost: recipe.laborCost,
       overhead_cost: recipe.overheadCost,
+      dish_key: recipe.dishKey,
+      basis: recipe.basis,
+      yield_qty: recipe.yieldQty,
     })
     .select(RECIPE_COLUMNS)
     .single();
@@ -109,6 +118,9 @@ export async function updateRecipe(id: string, patch: Partial<NewRecipe>): Promi
   if (patch.srp !== undefined) update.srp = patch.srp;
   if (patch.laborCost !== undefined) update.labor_cost = patch.laborCost;
   if (patch.overheadCost !== undefined) update.overhead_cost = patch.overheadCost;
+  if (patch.dishKey !== undefined) update.dish_key = patch.dishKey;
+  if (patch.basis !== undefined) update.basis = patch.basis;
+  if (patch.yieldQty !== undefined) update.yield_qty = patch.yieldQty;
 
   const { data, error } = await supabase.from("recipes").update(update).eq("id", id).select(RECIPE_COLUMNS).single();
   if (error) throw new Error(`Failed to update recipe: ${error.message}`);
