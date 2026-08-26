@@ -17,7 +17,13 @@ export function createSupabaseServerClient() {
         },
         setAll(cookiesToSet) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, {
+                ...options,
+                sameSite: "none",
+                secure: true,
+              }),
+            );
           } catch {
             // Called from a Server Component render, where cookies can't be
             // written — middleware.ts refreshes the session on the next request.
