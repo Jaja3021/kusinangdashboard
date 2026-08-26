@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";
+import { BranchBadge } from "@/components/ui/Badge";
 import { getBranchById } from "@/lib/mt/branches";
 import { saveRoomLayoutAction } from "@/app/dashboard/room-diagram/actions";
 import {
@@ -549,7 +550,7 @@ export default function RoomDiagramEditor({ layouts }: { layouts: RoomLayout[] }
             </div>
             <div className="flex justify-between">
               <dt className="text-gray-500">Branch</dt>
-              <dd className="font-medium text-brand-900">{getBranchById(active.branch)?.name ?? active.branch}</dd>
+              <dd><BranchBadge branch={getBranchById(active.branch)?.name ?? active.branch} /></dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-gray-500">Max capacity</dt>

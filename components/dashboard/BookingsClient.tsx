@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { CalendarDays, CalendarCheck, CalendarClock, Search, CalendarRange } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
-import Badge, { BadgeTone } from "@/components/ui/Badge";
+import Badge, { BadgeTone, BranchBadge } from "@/components/ui/Badge";
 import DataTable, { Column } from "@/components/ui/DataTable";
 import Link from "next/link";
 import { useBranch } from "@/components/providers/BranchProvider";
@@ -34,7 +34,7 @@ const columns: Column<Booking>[] = [
   { key: "eventType", header: "Event Type" },
   { key: "date", header: "Date" },
   { key: "guests", header: "Guests" },
-  { key: "branch", header: "Branch" },
+  { key: "branch", header: "Branch", render: (r) => <BranchBadge branch={r.branch} /> },
   { key: "venue", header: "Venue" },
   { key: "status", header: "Status", render: (r) => <Badge label={r.status} tone={statusTone[r.status]} /> },
 ];

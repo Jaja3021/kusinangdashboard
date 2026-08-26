@@ -1,15 +1,26 @@
-// Branch registry. One source of truth for the chart series color and the badge
-// treatment, so a branch always looks the same wherever it appears.
+// Branch registry. Backed by Supabase's public.branches table (see
+// supabase/branches.sql) — this module holds the *current* list as a live
+// module binding (`export let BRANCHES`), reassigned wholesale by
+// setBranches() rather than mutated in place. Every existing
+// `import { BRANCHES } from "@/lib/mt/branches"` across the app reads that
+// same live binding, so priming it once per server request (see
+// app/dashboard/layout.tsx) and once on the client (see BranchProvider)
+// keeps every consumer in sync with zero per-call-site changes.
+//
+// getBranchNames()/getBranchOptions() are functions rather than eagerly
+// computed consts for the same reason — a plain `const X = BRANCHES.map(...)`
+// would freeze at the value BRANCHES had at first import.
 
-import { CHART } from "@/lib/chart-colors";
 import { ALL_BRANCHES } from "./revenue";
+import { stylesFor, type BranchColorName } from "./branch-colors";
 
 export { ALL_BRANCHES };
 
 export type Branch = {
   id: string;
   name: string;
-  /** Categorical slot, assigned by position and never cycled. */
+  colorName: BranchColorName;
+  /** Categorical slot for chart series. */
   color: string;
   /** Tailwind classes for the branch badge. */
   badge: string;
@@ -17,34 +28,38 @@ export type Branch = {
   dot: string;
 };
 
-export const BRANCHES: Branch[] = [
-  {
-    id: "cavite",
-    name: "Cavite",
-    color: CHART.series1,
-    badge: "bg-sky-100 text-sky-700",
-    dot: "bg-sky-500",
-  },
-  {
-    id: "laguna",
-    name: "Laguna",
-    color: CHART.series2,
-    badge: "bg-orange-100 text-orange-700",
-    dot: "bg-orange-500",
-  },
-  {
-    id: "metro-manila",
-    name: "Metro Manila",
-    color: CHART.series3,
-    badge: "bg-emerald-100 text-emerald-700",
-    dot: "bg-emerald-500",
-  },
-];
+function toBranch(row: { id: string; name: string; colorName: BranchColorName }): Branch {
+  const styles = stylesFor(row.colorName);
+  return { id: row.id, name: row.name, colorName: row.colorName, ...styles };
+}
 
-export const BRANCH_NAMES = BRANCHES.map((b) => b.name);
+/** Seed/fallback — what the app shows before the first live fetch lands
+ * (module load, or a fetch failure). Matches supabase/branches.sql's seed. */
+const DEFAULT_BRANCHES: Branch[] = (
+  [
+    { id: "cavite", name: "Cavite", colorName: "red" },
+    { id: "laguna", name: "Laguna", colorName: "orange" },
+    { id: "metro-manila", name: "Metro Manila", colorName: "green" },
+  ] satisfies { id: string; name: string; colorName: BranchColorName }[]
+).map(toBranch);
+
+export let BRANCHES: Branch[] = DEFAULT_BRANCHES;
+
+/** Replaces the live branch list — called once per server request (layout)
+ * and once on client mount (BranchProvider), plus right after Add Branch
+ * succeeds so the new branch shows up without a full reload. */
+export function setBranches(rows: { id: string; name: string; colorName: BranchColorName }[]): void {
+  BRANCHES = rows.length > 0 ? rows.map(toBranch) : DEFAULT_BRANCHES;
+}
+
+export function getBranchNames(): string[] {
+  return BRANCHES.map((b) => b.name);
+}
 
 /** `All Branches` first, then each branch — the selector's option list. */
-export const BRANCH_OPTIONS = [ALL_BRANCHES, ...BRANCH_NAMES];
+export function getBranchOptions(): string[] {
+  return [ALL_BRANCHES, ...getBranchNames()];
+}
 
 export function getBranchByName(name: string): Branch | undefined {
   return BRANCHES.find((b) => b.name === name);

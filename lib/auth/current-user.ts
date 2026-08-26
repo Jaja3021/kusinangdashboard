@@ -1,7 +1,12 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { UserAccount } from "./user-store";
 
-export type CurrentUser = Pick<UserAccount, "id" | "name" | "email" | "role" | "branch">;
+export { hasFullAccess } from "./access";
+
+export type CurrentUser = Pick<
+  UserAccount,
+  "id" | "name" | "email" | "role" | "branches" | "pageAccess" | "canCloseDates"
+>;
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   const supabase = createSupabaseServerClient();
@@ -12,7 +17,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   const { data: profile } = await supabase
     .from("dashboard_profiles")
-    .select("name, email, role, branch, status")
+    .select("name, email, role, branches, page_access, can_close_dates, status")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -23,6 +28,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     name: profile.name,
     email: profile.email,
     role: profile.role,
-    branch: profile.branch,
+    branches: profile.branches ?? [],
+    pageAccess: profile.page_access ?? [],
+    canCloseDates: profile.can_close_dates ?? false,
   };
 }

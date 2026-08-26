@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, MapPin } from "lucide-react";
 import { useBranch } from "@/components/providers/BranchProvider";
-import { ALL_BRANCHES } from "@/lib/mt/branches";
+import { ALL_BRANCHES, getBranchByName } from "@/lib/mt/branches";
 import { useDismissable } from "./useDismissable";
 
 export default function BranchSelector({ compact = false }: { compact?: boolean }) {
@@ -13,6 +13,7 @@ export default function BranchSelector({ compact = false }: { compact?: boolean 
 
   const buttonLabel =
     compact && selectedBranch === ALL_BRANCHES ? "All" : selectedBranch;
+  const selectedBranchInfo = getBranchByName(selectedBranch);
 
   return (
     <div className="relative" ref={ref}>
@@ -24,10 +25,16 @@ export default function BranchSelector({ compact = false }: { compact?: boolean 
           compact ? "gap-1 px-2 py-1 text-xs" : "gap-1.5 px-3 py-1.5 text-sm"
         }`}
       >
-        <MapPin
-          size={compact ? 11 : 14}
-          className={compact ? "text-gold-600" : "text-gray-500"}
-        />
+        {selectedBranchInfo ? (
+          <span
+            className={`flex-shrink-0 rounded-full ${selectedBranchInfo.dot} ${compact ? "h-2 w-2" : "h-2.5 w-2.5"}`}
+          />
+        ) : (
+          <MapPin
+            size={compact ? 11 : 14}
+            className={compact ? "text-gold-600" : "text-gray-500"}
+          />
+        )}
         <span className={compact ? "max-w-[80px] truncate" : ""}>{buttonLabel}</span>
         <ChevronDown
           size={compact ? 10 : 14}
@@ -44,23 +51,30 @@ export default function BranchSelector({ compact = false }: { compact?: boolean 
             compact ? "left-0 min-w-[140px]" : "right-0 min-w-[160px]"
           }`}
         >
-          {options.map((option) => (
-            <button
-              key={option}
-              role="option"
-              aria-selected={selectedBranch === option}
-              onClick={() => {
-                setSelectedBranch(option);
-                setOpen(false);
-              }}
-              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 ${
-                selectedBranch === option ? "font-medium text-gold-600" : "text-gray-700"
-              }`}
-            >
-              <MapPin size={12} />
-              {option}
-            </button>
-          ))}
+          {options.map((option) => {
+            const branch = getBranchByName(option);
+            return (
+              <button
+                key={option}
+                role="option"
+                aria-selected={selectedBranch === option}
+                onClick={() => {
+                  setSelectedBranch(option);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 ${
+                  selectedBranch === option ? "font-medium text-gold-600" : "text-gray-700"
+                }`}
+              >
+                {branch ? (
+                  <span className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${branch.dot}`} />
+                ) : (
+                  <MapPin size={12} className="flex-shrink-0" />
+                )}
+                {option}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

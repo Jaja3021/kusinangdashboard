@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { AlertCircle, FileSpreadsheet, Hourglass, Info, Plus, Trash2, Wallet } from "lucide-react";
+import { AlertCircle, FileSpreadsheet, Hourglass, Info, Pencil, Plus, Trash2 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
-import Badge, { BadgeTone } from "@/components/ui/Badge";
+import Badge, { BadgeTone, BranchBadge } from "@/components/ui/Badge";
 import DataTable, { Column } from "@/components/ui/DataTable";
 import Modal from "@/components/ui/Modal";
 import ScrollX from "@/components/ui/ScrollX";
@@ -12,7 +12,8 @@ import { useBranch } from "@/components/providers/BranchProvider";
 import { ALL_BRANCHES, BRANCHES } from "@/lib/mt/branches";
 import { formatPeso } from "@/lib/format";
 import { createExpenseAction, deleteExpenseAction, updateExpenseStatusAction } from "@/app/dashboard/admin-expenses/actions";
-import { EXPENSE_CATEGORIES } from "@/lib/admin-expenses/categories";
+import ExpenseFormFields from "./ExpenseFormFields";
+import EditExpenseModal from "./EditExpenseModal";
 import { EXPENSE_STATUSES, type Expense, type ExpenseStatus, type NewExpense } from "@/lib/admin-expenses/types";
 
 const STATUS_TONE: Record<ExpenseStatus, BadgeTone> = { Pending: "amber", Approved: "blue", Paid: "green" };
@@ -57,6 +58,7 @@ export default function AdminExpensesClient({ expenses: initialExpenses }: { exp
   const [addModal, setAddModal] = useState(false);
   const [draft, setDraft] = useState<NewExpense>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   const branchMatch = selectedBranch === ALL_BRANCHES ? null : BRANCHES.find((b) => b.name === selectedBranch);
   const scoped = branchMatch ? expenses.filter((e) => e.branch === branchMatch.id) : expenses;
@@ -128,10 +130,9 @@ export default function AdminExpensesClient({ expenses: initialExpenses }: { exp
 
   const columns: Column<Expense>[] = [
     { key: "date", header: "Date" },
-    { key: "branch", header: "Branch", render: (r) => branchLabel(r.branch) },
-    { key: "category", header: "Category", render: (r) => r.category || "—" },
-    { key: "vendor", header: "Vendor", render: (r) => <span className="font-medium text-brand-900">{r.vendor || "—"}</span> },
-    { key: "amount", header: "Amount", render: (r) => formatPeso(r.amount) },
+    { key: "category", header: "Category", render: (r) => <span className="font-semibold text-brand-900">{r.category || "—"}</span> },
+    { key: "branch", header: "Branch", render: (r) => <BranchBadge branch={branchLabel(r.branch)} /> },
+    { key: "amount", header: "Amount", render: (r) => <span className="font-medium text-brand-900">{formatPeso(r.amount)}</span> },
     {
       key: "status",
       header: "Status",
@@ -151,13 +152,19 @@ export default function AdminExpensesClient({ expenses: initialExpenses }: { exp
         </select>
       ),
     },
+    { key: "loggedBy", header: "Logged By", render: (r) => <span className="text-gray-500">{r.loggedBy || "—"}</span> },
     {
       key: "actions",
       header: "",
       render: (r) => (
-        <button onClick={() => handleDelete(r.id)} className="text-gray-400 hover:text-red-500" aria-label="Delete expense">
-          <Trash2 size={14} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setEditingExpense(r)} className="text-gray-400 hover:text-gray-600" aria-label="Edit expense">
+            <Pencil size={14} />
+          </button>
+          <button onClick={() => handleDelete(r.id)} className="text-gray-400 hover:text-red-500" aria-label="Delete expense">
+            <Trash2 size={14} />
+          </button>
+        </div>
       ),
     },
   ];
@@ -201,67 +208,41 @@ export default function AdminExpensesClient({ expenses: initialExpenses }: { exp
       <div className="mt-6 rounded-lg border border-gray-200 bg-white">
         <div className="px-5 py-3">
           <h2 className="font-display text-base font-semibold text-brand-900">All Entries</h2>
-          <p className="text-xs text-gray-400">{scoped.length} entries</p>
+          <p className="text-xs text-gray-400">{scoped.length} {scoped.length === 1 ? "entry" : "entries"} in this period</p>
         </div>
         {scoped.length === 0 ? (
           <p className="px-5 pb-5 text-sm text-gray-400">No expenses logged yet.</p>
         ) : (
-          <ScrollX>
-            <DataTable columns={columns} rows={scoped} />
-          </ScrollX>
+          <>
+            <ScrollX>
+              <DataTable columns={columns} rows={scoped} />
+            </ScrollX>
+            <p className="border-t border-gray-100 px-5 py-3 text-xs text-gray-400">
+              Showing 1–{scoped.length} of {scoped.length} expenses
+            </p>
+          </>
         )}
       </div>
 
       <Modal isOpen={addModal} onClose={() => setAddModal(false)} title="Add Expense" size="md">
         <form onSubmit={handleAdd} className="space-y-3">
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-500">Category</span>
-            <select required value={draft.category} onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 text-sm text-brand-900 outline-none focus:border-gold-400">
-              <option value="">Select a category…</option>
-              {EXPENSE_CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-500">Branch</span>
-              <select value={draft.branch} onChange={(e) => setDraft((d) => ({ ...d, branch: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 text-sm text-brand-900 outline-none focus:border-gold-400">
-                <option value="">Select branch…</option>
-                {BRANCHES.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-500">Entry Date</span>
-              <input type="date" required value={draft.date} onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400" />
-            </label>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-500">Amount (₱)</span>
-              <input type="number" min={0} step="any" required value={draft.amount || ""} onChange={(e) => setDraft((d) => ({ ...d, amount: Number(e.target.value) || 0 }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400" />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-500">Payment Status</span>
-              <select value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value as ExpenseStatus }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 text-sm text-brand-900 outline-none focus:border-gold-400">
-                {EXPENSE_STATUSES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-500">Notes</span>
-            <textarea value={draft.notes} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))} rows={2} placeholder="Optional" className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-brand-900 outline-none focus:border-gold-400" />
-          </label>
+          <ExpenseFormFields draft={draft} onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))} />
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setAddModal(false)} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
+            <button type="button" onClick={() => setAddModal(false)} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+              Cancel
+            </button>
             <button type="submit" disabled={saving} className="rounded-lg bg-gold-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gold-600 disabled:opacity-40">{saving ? "Adding…" : "Add Expense"}</button>
           </div>
         </form>
       </Modal>
+
+      {editingExpense && (
+        <EditExpenseModal
+          expense={editingExpense}
+          onClose={() => setEditingExpense(null)}
+          onSaved={(updated) => setExpenses((cur) => cur.map((e) => (e.id === updated.id ? updated : e)))}
+        />
+      )}
     </div>
   );
 }

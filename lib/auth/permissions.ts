@@ -1,17 +1,8 @@
 // Who can do what, expressed once.
 //
-// The brief this was built from names four roles (Owner / Admin / Kitchen
-// Staff / Purchasing Staff), but public.dashboard_profiles already constrains
-// `role` to five different ones and there are live accounts using them
-// (supabase/dashboard_profiles.sql). Rather than alter that constraint and
-// migrate existing users, the intended roles are MAPPED onto the existing
-// five — the capability, not the role name, is what pages check:
-//
-//   Owner             → the brief's Owner (everything, incl. financials)
-//   Branch Manager    → the brief's Admin + Purchasing Staff
-//   Event Coordinator → bookings/calendar, no money and no inventory writes
-//   Finance Officer   → financials + purchasing approval, no kitchen writes
-//   Staff             → the brief's Kitchen Staff (read-only prep view)
+// Role-derived capabilities gate server actions (money/inventory/user
+// management); per-page visibility is a separate, per-user concept now (see
+// lib/auth/page-access.ts) rather than being role-derived.
 
 import type { UserAccount } from "./user-store";
 
@@ -45,6 +36,17 @@ export type Capability = (typeof CAPABILITIES)[number];
 
 const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
   Owner: [...CAPABILITIES],
+  Developer: [...CAPABILITIES],
+  Admin: [
+    "manage:inventory",
+    "manage:stock",
+    "manage:purchasing",
+    "manage:bookings",
+    "manage:calendar",
+    "manage:capacity",
+    "view:kitchen",
+    "approve:change-requests",
+  ],
   "Branch Manager": [
     "manage:inventory",
     "manage:stock",
@@ -54,11 +56,13 @@ const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
     "view:kitchen",
     "approve:change-requests",
   ],
-  "Event Coordinator": ["manage:bookings", "manage:calendar", "view:kitchen", "approve:change-requests"],
-  "Finance Officer": ["view:financials", "manage:purchasing"],
-  // Kitchen staff: sees what to cook and what it needs, changes no prices,
-  // reads no financial report, deletes no history.
-  Staff: ["view:kitchen"],
+  "Sales Staff": ["manage:bookings"],
+  "Kitchen Staff": ["view:kitchen"],
+  "Operations Staff": ["manage:inventory", "manage:stock", "view:kitchen"],
+  "Finance Staff": ["view:financials", "manage:purchasing"],
+  // Internal/support accounts: no business capabilities by default — what
+  // they can see is driven entirely by their per-user page access.
+  "Tech Team": [],
 };
 
 export function can(role: Role | undefined | null, capability: Capability): boolean {

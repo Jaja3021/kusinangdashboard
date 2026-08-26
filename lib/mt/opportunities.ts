@@ -20,7 +20,7 @@ import { CELEBRITIES } from "@/lib/celebrities";
 import { menuPackages, grazingSpreads, cateringPackages, packedMeals } from "@/lib/menu/dummy-catalog";
 import { financialPeriods } from "@/lib/owner-financials/mock";
 import type { FinancialPeriod } from "@/lib/owner-financials/types";
-import { BRANCHES, BRANCH_NAMES } from "./branches";
+import { BRANCHES, getBranchNames } from "./branches";
 import { addDays, daysUntil } from "./dates";
 import type {
   InquirySource,
@@ -86,7 +86,9 @@ const PACKAGE_NAMES: string[] = [...menuPackages, ...grazingSpreads, ...catering
 
 /** Splits `total` across the 3 branches by the weighted ratios above (with jitter), summing back to exactly `total`. */
 function splitAcrossBranches(rng: () => number, total: number): { branch: string; amount: number }[] {
-  const jittered = BRANCHES.map((b) => ({ branch: b.name, weight: BRANCH_WEIGHT[b.id] * (0.9 + rng() * 0.2) }));
+  // Branches added after this mock model was built (BRANCH_WEIGHT only
+  // covers the original 3) get a near-zero weight rather than NaN.
+  const jittered = BRANCHES.map((b) => ({ branch: b.name, weight: (BRANCH_WEIGHT[b.id] ?? 0.01) * (0.9 + rng() * 0.2) }));
   const weightSum = jittered.reduce((s, b) => s + b.weight, 0);
   const out = jittered.map((b) => ({ branch: b.branch, amount: Math.round((b.weight / weightSum) * total) }));
   out[out.length - 1].amount += total - out.reduce((s, b) => s + b.amount, 0);
@@ -187,6 +189,7 @@ function buildLost(rng: () => number, branch: string, period: FinancialPeriod): 
 function build(): Opportunity[] {
   const rng = seeded(20260811);
   const out: Opportunity[] = [];
+  const branchNames = getBranchNames();
 
   for (const period of financialPeriods) {
     if (period.kind === "actual") {
@@ -199,10 +202,10 @@ function build(): Opportunity[] {
       }
       // Flavor — variety for New Inquiries / the donut / Refunded-Lost / notifications,
       // not counted toward any exact total.
-      if (rng() < 0.4) out.push(buildLost(rng, pick(rng, BRANCH_NAMES), period));
+      if (rng() < 0.4) out.push(buildLost(rng, pick(rng, branchNames), period));
       const openFlavor = between(rng, 0, 2);
       for (let i = 0; i < openFlavor; i++) {
-        out.push(buildOpen(rng, pick(rng, BRANCH_NAMES), period.sales / 6, period));
+        out.push(buildOpen(rng, pick(rng, branchNames), period.sales / 6, period));
       }
     } else {
       // Projected periods: everything is still open pipeline work.
@@ -212,7 +215,7 @@ function build(): Opportunity[] {
           out.push(buildOpen(rng, branch, piece, period));
         }
       }
-      if (rng() < 0.15) out.push(buildLost(rng, pick(rng, BRANCH_NAMES), period));
+      if (rng() < 0.15) out.push(buildLost(rng, pick(rng, branchNames), period));
     }
   }
 

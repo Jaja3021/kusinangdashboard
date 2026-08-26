@@ -7,7 +7,7 @@ import Modal from "@/components/ui/Modal";
 import Badge, { type BadgeTone, BranchBadge } from "@/components/ui/Badge";
 import DataTable, { type Column } from "@/components/ui/DataTable";
 import { formatPeso } from "@/lib/format";
-import { ALL_BRANCHES, BRANCH_OPTIONS, getBranchByName, getBranchById } from "@/lib/mt/branches";
+import { ALL_BRANCHES, getBranchOptions, getBranchByName, getBranchById } from "@/lib/mt/branches";
 import { CATERING_DISH_CATALOG, CATERING_DISH_CATEGORIES, cateringCategoryOf, type CateringDishCategory } from "@/lib/menu/dish-catalog";
 import {
   approveChangeRequestAction,
@@ -59,11 +59,12 @@ export default function ChangeRequestsClient({
   requests: ChangeRequestRecord[];
   canApprove: boolean;
   /** Whether this admin may propose a change themselves (the "Propose Menu
-   * Change" button) — separate from canApprove, since Finance Officer can't
+   * Change" button) — separate from canApprove, since Finance Staff can't
    * approve but every role with manage:bookings can propose. */
   canPropose: boolean;
-  /** A branch NAME (matches lib/mt/branches), or null for Owners — mirrors
-   * the useBranch() convention the rest of the dashboard uses. This is a UI
+  /** A branch NAME (matches lib/mt/branches), or null for full-access
+   * accounts / anyone assigned more than one branch — mirrors the
+   * useBranch() convention the rest of the dashboard uses. This is a UI
    * convenience only, not a security boundary: RLS can only see
    * public.is_admin(), never a specific branch. */
   defaultBranch: string | null;
@@ -353,7 +354,7 @@ export default function ChangeRequestsClient({
           />
         </div>
         <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-slate-600">
-          {BRANCH_OPTIONS.map((b) => (
+          {getBranchOptions().map((b) => (
             <option key={b} value={b}>{b}</option>
           ))}
         </select>

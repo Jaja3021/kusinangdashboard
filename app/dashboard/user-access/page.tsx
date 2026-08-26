@@ -1,53 +1,59 @@
-import { ShieldCheck, UserPlus, ShieldAlert } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
-import StatCard from "@/components/ui/StatCard";
-import Badge, { BadgeTone } from "@/components/ui/Badge";
-import DataTable, { Column } from "@/components/ui/DataTable";
+import type { BadgeTone } from "@/components/ui/Badge";
 import AddUserForm from "@/components/auth/AddUserForm";
+import UserAccessCard from "@/components/auth/UserAccessCard";
+import StaffAccountsTable from "@/components/auth/StaffAccountsTable";
+import BranchManagementCard from "@/components/auth/BranchManagementCard";
+import AvailablePagesCard from "@/components/auth/AvailablePagesCard";
 import { getAllUsers, UserAccount } from "@/lib/auth/user-store";
-
-const statusTone: Record<UserAccount["status"], BadgeTone> = {
-  Active: "green",
-  Invited: "blue",
-  Suspended: "red",
-};
 
 const roleTone: Record<UserAccount["role"], BadgeTone> = {
   Owner: "gold",
+  Developer: "blue",
+  Admin: "amber",
   "Branch Manager": "amber",
-  "Event Coordinator": "blue",
-  "Finance Officer": "slate",
-  Staff: "slate",
+  "Sales Staff": "slate",
+  "Kitchen Staff": "slate",
+  "Operations Staff": "slate",
+  "Finance Staff": "slate",
+  "Tech Team": "blue",
 };
-
-const columns: Column<UserAccount>[] = [
-  { key: "name", header: "Name", render: (r) => <span className="font-medium text-brand-900">{r.name}</span> },
-  { key: "email", header: "Email" },
-  { key: "role", header: "Role", render: (r) => <Badge label={r.role} tone={roleTone[r.role]} /> },
-  { key: "branch", header: "Branch" },
-  { key: "lastActive", header: "Last Active" },
-  { key: "status", header: "Status", render: (r) => <Badge label={r.status} tone={statusTone[r.status]} /> },
-];
 
 export default async function UserAccessPage() {
   const userAccounts = await getAllUsers();
-  const active = userAccounts.filter((u) => u.status === "Active").length;
-  const invited = userAccounts.filter((u) => u.status === "Invited").length;
-  const suspended = userAccounts.filter((u) => u.status === "Suspended").length;
+
+  const owners = userAccounts.filter((u) => u.role === "Owner");
+  const developers = userAccounts.filter((u) => u.role === "Developer");
+  const everyoneElse = userAccounts.filter((u) => u.role !== "Owner" && u.role !== "Developer");
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader title="User Access" subtitle="Who can log in, and what they can see.">
         <AddUserForm />
       </PageHeader>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Active Accounts" value={String(active)} icon={<ShieldCheck size={18} className="text-gold-600" />} />
-        <StatCard label="Pending Invites" value={String(invited)} icon={<UserPlus size={18} className="text-gold-600" />} />
-        <StatCard label="Suspended" value={String(suspended)} icon={<ShieldAlert size={18} className="text-gold-600" />} footer={<span className="text-xs font-medium text-red-500">{"Access revoked"}</span>} />
-      </div>
-      <div className="mt-6">
-        <DataTable columns={columns} rows={userAccounts} />
-      </div>
+
+      {owners.length > 0 && (
+        <div className="space-y-2">
+          {owners.map((u) => (
+            <UserAccessCard key={u.id} user={u} roleTone={roleTone[u.role]} highlight />
+          ))}
+        </div>
+      )}
+
+      {developers.length > 0 && (
+        <div>
+          <div className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-400">Developer Access</div>
+          <div className="space-y-2">
+            {developers.map((u) => (
+              <UserAccessCard key={u.id} user={u} roleTone={roleTone[u.role]} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <StaffAccountsTable users={everyoneElse} />
+      <BranchManagementCard users={userAccounts} />
+      <AvailablePagesCard />
     </div>
   );
 }

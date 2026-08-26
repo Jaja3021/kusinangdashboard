@@ -9,7 +9,7 @@ const sans = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Kusinang Pamana — Business Dashboard",
+  title: "Kusinang Pamana",
   description: "Kitchen board, bookings, inventory and reporting for Kusinang Pamana.",
 };
 

@@ -16,6 +16,7 @@
 // for RLS.
 
 import { getCurrentUser, type CurrentUser } from "./current-user";
+import { hasFullAccess } from "./access";
 import { can, type Capability } from "./permissions";
 
 export async function requireCapability(capability: Capability): Promise<CurrentUser> {
@@ -23,6 +24,18 @@ export async function requireCapability(capability: Capability): Promise<Current
   if (!user) throw new Error("You are not signed in.");
   if (!can(user.role, capability)) {
     throw new Error(`Your role (${user.role}) is not allowed to ${capability.replace(":", " ")}.`);
+  }
+  return user;
+}
+
+/** Gates blocking/unblocking calendar dates — an independent per-user flag
+ * (the Add User form's "Admin — can close dates" checkbox), not a
+ * role-derived capability. */
+export async function requireCanCloseDates(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("You are not signed in.");
+  if (!hasFullAccess(user.role) && !user.canCloseDates) {
+    throw new Error("You are not allowed to close or reopen dates.");
   }
   return user;
 }

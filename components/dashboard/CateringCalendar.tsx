@@ -17,6 +17,7 @@ import Modal from "@/components/ui/Modal";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
 import { useBranch } from "@/components/providers/BranchProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { hasFullAccess } from "@/lib/auth/access";
 import { can } from "@/lib/auth/permissions";
 import { ALL_BRANCHES, getBranchByName, getBranchById } from "@/lib/mt/branches";
 import { todayManila } from "@/lib/mt/dates";
@@ -125,7 +126,7 @@ export default function CateringCalendar({
   const [localCapacities, setLocalCapacities] = useState(capacities);
 
   const branchId = selectedBranch === ALL_BRANCHES ? null : (getBranchByName(selectedBranch)?.id ?? null);
-  const canManageCalendar = can(user.role, "manage:calendar");
+  const canManageCalendar = can(user.role, "manage:calendar") && (hasFullAccess(user.role) || user.canCloseDates);
   const canManageCapacity = can(user.role, "manage:capacity");
 
   const scopedOrders = useMemo(

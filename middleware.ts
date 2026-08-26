@@ -43,6 +43,24 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  if (user && pathname.startsWith("/dashboard") && pathname !== "/dashboard") {
+    const { data: profile } = await supabase
+      .from("dashboard_profiles")
+      .select("role, page_access")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const fullAccess = profile?.role === "Owner" || profile?.role === "Developer";
+    const pageAccess: string[] = profile?.page_access ?? [];
+    const allowed = fullAccess || pageAccess.some((granted: string) => pathname.startsWith(granted));
+
+    if (!allowed) {
+      const dashboardUrl = request.nextUrl.clone();
+      dashboardUrl.pathname = "/dashboard";
+      return NextResponse.redirect(dashboardUrl);
+    }
+  }
+
   return response;
 }
 

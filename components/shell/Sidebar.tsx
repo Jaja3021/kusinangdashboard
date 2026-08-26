@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { NAV } from "./nav";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { hasPageAccess } from "@/lib/auth/page-access";
 
 const LOGO_IMAGE =
   "https://assets.cdn.filesafe.space/xALi9D5ZQRYrKD8SoD6y/media/6a734833329b76ca7b4b64e0.png";
@@ -29,9 +31,15 @@ function useTabletBand(): boolean {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
   const [manuallyCollapsed, setManuallyCollapsed] = useState(false);
   const isTablet = useTabletBand();
   const collapsed = isTablet || manuallyCollapsed;
+
+  const visibleNav = NAV.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => hasPageAccess(user, item.path)),
+  })).filter((group) => group.items.length > 0);
 
   return (
     <div
@@ -58,7 +66,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
-        {NAV.map((group, i) => (
+        {visibleNav.map((group, i) => (
           <div key={group.label ?? i}>
             {group.label &&
               (collapsed ? (

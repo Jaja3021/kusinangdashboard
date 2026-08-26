@@ -1,7 +1,7 @@
 import PageHeader from "@/components/ui/PageHeader";
 import ChangeRequestsClient from "@/components/dashboard/ChangeRequestsClient";
 import { getChangeRequests } from "@/lib/change-requests/data";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { getCurrentUser, hasFullAccess } from "@/lib/auth/current-user";
 import { can } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,9 @@ export default async function ChangeRequestsPage() {
         requests={requests}
         canApprove={can(user?.role, "approve:change-requests")}
         canPropose={can(user?.role, "manage:bookings")}
-        defaultBranch={user?.role === "Owner" ? null : (user?.branch ?? null)}
+        defaultBranch={
+          !user || hasFullAccess(user.role) || user.branches.length !== 1 ? null : user.branches[0]
+        }
       />
     </div>
   );

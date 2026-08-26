@@ -12,7 +12,7 @@ export default async function InquiriesPage() {
 
   return (
     <div>
-      <PageHeader title="Inquiries" subtitle="Leads collected from the website, phone, and walk-ins." />
+      <PageHeader title="Inquiries" subtitle="Lead management and conversion tracking." />
       <InquiriesClient orders={[...orders, ...mockOrders]} />
     </div>
   );

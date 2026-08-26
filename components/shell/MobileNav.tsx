@@ -6,20 +6,25 @@ import { usePathname } from "next/navigation";
 import { MoreHorizontal } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { MOBILE_MORE, MOBILE_PRIMARY } from "./nav";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { hasPageAccess } from "@/lib/auth/page-access";
 
 export default function MobileNav() {
   const pathname = usePathname();
+  const { user } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
 
   const isActive = (path: string) =>
     path === "/dashboard" ? pathname === path : pathname.startsWith(path);
 
-  const moreIsActive = MOBILE_MORE.some((item) => isActive(item.path));
+  const visiblePrimary = MOBILE_PRIMARY.filter((item) => hasPageAccess(user, item.path));
+  const visibleMore = MOBILE_MORE.filter((item) => hasPageAccess(user, item.path));
+  const moreIsActive = visibleMore.some((item) => isActive(item.path));
 
   return (
     <>
       <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
-        {MOBILE_PRIMARY.map(({ label, path, icon: Icon }) => (
+        {visiblePrimary.map(({ label, path, icon: Icon }) => (
           <Link
             key={path}
             href={path}
@@ -45,7 +50,7 @@ export default function MobileNav() {
 
       <Modal isOpen={moreOpen} onClose={() => setMoreOpen(false)} title="More" size="md">
         <div className="grid grid-cols-3 gap-2">
-          {MOBILE_MORE.map(({ label, path, icon: Icon }) => (
+          {visibleMore.map(({ label, path, icon: Icon }) => (
             <Link
               key={path}
               href={path}

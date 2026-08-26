@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { ClipboardList, Hourglass, PackageCheck } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import DataTable, { Column } from "@/components/ui/DataTable";
+import { BranchBadge } from "@/components/ui/Badge";
 import { useBranch } from "@/components/providers/BranchProvider";
 import { useMockOrderStatus } from "@/components/providers/MockOrderStatusProvider";
 import { getBranchById, ordersInBranch } from "@/lib/mt/branches";
@@ -48,7 +49,7 @@ export default function OrdersClient({ orders: initialOrders }: { orders: OrderR
           )}
         </div>
       ) },
-      { key: "branch", header: "Branch", render: (r) => (r.branch && getBranchById(r.branch)?.name) || r.branch || "—" },
+      { key: "branch", header: "Branch", render: (r) => <BranchBadge branch={(r.branch && getBranchById(r.branch)?.name) || r.branch || undefined} /> },
       { key: "eventDate", header: "Event Date", render: (r) => r.eventDate || "—" },
       {
         key: "status",

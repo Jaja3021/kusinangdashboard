@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Download, Eye, FileText } from "lucide-react";
 import DataTable, { Column } from "@/components/ui/DataTable";
+import { BranchBadge } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";
 import { downloadCsv, toCsv, type CsvColumn } from "@/lib/csv";
@@ -77,7 +78,7 @@ export default function ReportsClient({ orders }: { orders: OrderRecord[] }) {
       rows: monthlySales,
       tableColumns: [
         { key: "month", header: "Month" },
-        { key: "branch", header: "Branch" },
+        { key: "branch", header: "Branch", render: (r) => <BranchBadge branch={r.branch} /> },
         { key: "revenue", header: "Revenue", render: (r) => formatPeso(r.revenue) },
       ],
       csvColumns: [
@@ -93,7 +94,7 @@ export default function ReportsClient({ orders }: { orders: OrderRecord[] }) {
       periodLabel: "This year",
       rows: branchComparison,
       tableColumns: [
-        { key: "branch", header: "Branch", render: (r) => r.branch.name },
+        { key: "branch", header: "Branch", render: (r) => <BranchBadge branch={r.branch.name} /> },
         { key: "totalRevenue", header: "Revenue", render: (r) => formatPeso(r.totalRevenue) },
         { key: "totalBookings", header: "Bookings" },
         { key: "totalInquiries", header: "Inquiries" },
@@ -122,7 +123,7 @@ export default function ReportsClient({ orders }: { orders: OrderRecord[] }) {
         { key: "client", header: "Client" },
         { key: "eventType", header: "Event Type" },
         { key: "date", header: "Date" },
-        { key: "branch", header: "Branch" },
+        { key: "branch", header: "Branch", render: (r) => <BranchBadge branch={r.branch} /> },
         { key: "venue", header: "Venue" },
         { key: "status", header: "Status" },
       ],

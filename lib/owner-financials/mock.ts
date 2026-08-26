@@ -242,7 +242,9 @@ export type MonthlyRollupPoint = {
 };
 
 function splitByBranch(rng: () => number, total: number): Record<string, number> {
-  const jittered = BRANCHES.map((b) => ({ id: b.id, weight: BRANCH_SPLIT[b.id] * (0.92 + rng() * 0.16) }));
+  // Branches added after this mock model was built (BRANCH_SPLIT only covers
+  // the original 3) get a near-zero weight rather than NaN.
+  const jittered = BRANCHES.map((b) => ({ id: b.id, weight: (BRANCH_SPLIT[b.id] ?? 0.01) * (0.92 + rng() * 0.16) }));
   const weightSum = jittered.reduce((s, b) => s + b.weight, 0);
   const out: Record<string, number> = {};
   for (const b of jittered) out[b.id] = Math.round((b.weight / weightSum) * total);

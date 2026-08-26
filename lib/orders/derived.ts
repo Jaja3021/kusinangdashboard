@@ -71,6 +71,8 @@ export function toInquiryRows(orders: OrderRecord[]): Inquiry[] {
     eventDate: formatDate(o.eventDate),
     guests: o.pax ?? 0,
     phone: o.phone,
+    email: o.email,
+    amount: o.total,
     status: INQUIRY_STATUS[o.status],
     receivedAt: formatDateTime(o.createdAt),
     branch: (o.branch && getBranchById(o.branch)?.name) || o.branch || "—",
@@ -92,6 +94,11 @@ export function toBookingRows(orders: OrderRecord[]): Booking[] {
   }));
 }
 
+/** A customer counts as "confirmed or paid" once one of their orders has
+ * moved past the pending stage — a Cancelled-only or still-Pending history
+ * doesn't qualify them as an actual customer yet. */
+const CONFIRMED_OR_BETTER: OrderStatus[] = ["Confirmed", "Preparing", "Cooking", "Ready for Delivery", "Completed"];
+
 export function toCustomerRows(orders: OrderRecord[]): Customer[] {
   const groups = new Map<string, OrderRecord[]>();
   for (const o of orders) {
@@ -101,24 +108,41 @@ export function toCustomerRows(orders: OrderRecord[]): Customer[] {
     else groups.set(key, [o]);
   }
 
-  return [...groups.entries()].map(([email, group]) => {
-    const mostRecent = group.reduce((latest, o) =>
-      Date.parse(o.createdAt) > Date.parse(latest.createdAt) ? o : latest,
-    );
-    const lifetimeSpend = group
-      .filter((o) => o.status !== "Cancelled")
-      .reduce((total, o) => total + o.total, 0);
+  return [...groups.entries()]
+    .filter(([, group]) => group.some((o) => CONFIRMED_OR_BETTER.includes(o.status)))
+    .map(([email, group]) => {
+      const mostRecent = group.reduce((latest, o) =>
+        Date.parse(o.createdAt) > Date.parse(latest.createdAt) ? o : latest,
+      );
+      const lifetimeSpend = group
+        .filter((o) => o.status !== "Cancelled")
+        .reduce((total, o) => total + o.total, 0);
 
-    return {
-      id: email,
-      name: fullName(mostRecent),
-      contact: email,
-      totalBookings: group.length,
-      lifetimeSpend,
-      tier: lifetimeSpend >= 300_000 ? "Platinum" : lifetimeSpend >= 100_000 ? "Gold" : "Silver",
-      lastEvent: `${mostRecent.eventType || "Order"} — ${MONTH_YEAR_FORMAT.format(
-        new Date(mostRecent.eventDate || mostRecent.createdAt),
-      )}`,
-    };
-  });
+      return {
+        id: email,
+        name: fullName(mostRecent),
+        contact: email,
+        phone: mostRecent.phone,
+        branch: (mostRecent.branch && getBranchById(mostRecent.branch)?.name) || mostRecent.branch || "—",
+        totalBookings: group.length,
+        lifetimeSpend,
+        tier: lifetimeSpend >= 300_000 ? "Platinum" : lifetimeSpend >= 100_000 ? "Gold" : "Silver",
+        lastEvent: `${mostRecent.eventType || "Order"} — ${MONTH_YEAR_FORMAT.format(
+          new Date(mostRecent.eventDate || mostRecent.createdAt),
+        )}`,
+        lastBookingDate: formatDate(mostRecent.eventDate || mostRecent.createdAt),
+        status: "Active",
+        orders: [...group]
+          .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+          .map((o) => ({
+            id: o.orderNumber,
+            eventType: o.eventType || "—",
+            eventDate: formatDate(o.eventDate),
+            branch: (o.branch && getBranchById(o.branch)?.name) || o.branch || "—",
+            total: o.total,
+            status: o.status,
+            paymentStatus: o.paymentStatus,
+          })),
+      };
+    });
 }

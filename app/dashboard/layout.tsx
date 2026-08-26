@@ -10,6 +10,7 @@ import MobileNav from "@/components/shell/MobileNav";
 import Sidebar from "@/components/shell/Sidebar";
 import Topbar from "@/components/shell/Topbar";
 import { getOrders } from "@/lib/orders/data";
+import { loadAndPrimeBranches } from "@/lib/mt/branches-server";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
@@ -21,9 +22,14 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   // to give the topbar search real orders to search over.
   const orders = await getOrders();
 
+  // Primes lib/mt/branches.ts's shared BRANCHES for every Server Component
+  // rendered under this layout in the same request, and seeds BranchProvider
+  // so client components pick it up too — see that module's top comment.
+  const branches = await loadAndPrimeBranches();
+
   return (
     <AuthProvider user={user}>
-      <BranchProvider>
+      <BranchProvider initialBranches={branches}>
         <DateRangeProvider>
           <MockOrderStatusProvider>
             <SyncProvider>

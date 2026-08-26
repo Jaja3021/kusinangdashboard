@@ -20,43 +20,41 @@ export type Inquiry = {
   eventDate: string;
   guests: number;
   phone: string;
+  email: string;
+  amount: number;
   status: "New" | "In Progress" | "Converted" | "Lost";
   receivedAt: string;
   branch?: string;
 };
 
-export const inquiries: Inquiry[] = [
-  { id: "INQ-241", name: "Angelica Ramos", eventType: "Wedding Reception", eventDate: "Oct 18, 2026", guests: 180, phone: "0917 220 4471", status: "New", receivedAt: "Today, 9:12 AM" },
-  { id: "INQ-240", name: "Ferdinand Aquino", eventType: "Debut", eventDate: "Sep 5, 2026", guests: 120, phone: "0918 552 3390", status: "In Progress", receivedAt: "Today, 8:47 AM" },
-  { id: "INQ-239", name: "Teresita Lim", eventType: "Corporate Gala", eventDate: "Aug 29, 2026", guests: 300, phone: "0920 114 6602", status: "In Progress", receivedAt: "Yesterday, 4:30 PM" },
-  { id: "INQ-238", name: "Michael Garcia", eventType: "Christening", eventDate: "Sep 20, 2026", guests: 80, phone: "0919 887 1235", status: "Converted", receivedAt: "Yesterday, 2:05 PM" },
-  { id: "INQ-237", name: "Rosario Torres", eventType: "Fiesta Reunion", eventDate: "Aug 22, 2026", guests: 150, phone: "0917 664 9021", status: "Converted", receivedAt: "Aug 9, 2026" },
-  { id: "INQ-236", name: "Benjamin Flores", eventType: "Wedding Reception", eventDate: "Nov 14, 2026", guests: 220, phone: "0921 330 8845", status: "New", receivedAt: "Aug 9, 2026" },
-  { id: "INQ-235", name: "Cristina Del Rosario", eventType: "Birthday Party", eventDate: "Sep 1, 2026", guests: 60, phone: "0918 774 5512", status: "Lost", receivedAt: "Aug 7, 2026" },
-  { id: "INQ-234", name: "Paolo Fernandez", eventType: "Corporate Gala", eventDate: "Oct 3, 2026", guests: 250, phone: "0917 902 6634", status: "Converted", receivedAt: "Aug 6, 2026" },
-];
+// The dummy `inquiries`/`customers` arrays these types once backed were
+// removed — real data comes entirely from lib/orders/derived.ts's
+// toInquiryRows()/toCustomerRows() now. These types remain as the shared
+// view-model shape both that module and the *Client components import.
 
 // ---------- Customers ----------
 export type Customer = {
   id: string;
   name: string;
   contact: string;
+  phone: string;
+  branch: string;
   totalBookings: number;
   lifetimeSpend: number;
   tier: "Platinum" | "Gold" | "Silver";
   lastEvent: string;
+  lastBookingDate: string;
+  status: "Active";
+  orders: {
+    id: string;
+    eventType: string;
+    eventDate: string;
+    branch: string;
+    total: number;
+    status: string;
+    paymentStatus: string;
+  }[];
 };
-
-export const customers: Customer[] = [
-  { id: "CUS-101", name: "Maria Santos", contact: "maria.santos@gmail.com", totalBookings: 6, lifetimeSpend: 812000, tier: "Platinum", lastEvent: "Wedding Reception — Jun 2026" },
-  { id: "CUS-102", name: "Josefina Cruz", contact: "jo.cruz88@gmail.com", totalBookings: 4, lifetimeSpend: 456000, tier: "Gold", lastEvent: "Debut — Apr 2026" },
-  { id: "CUS-103", name: "Ramon Dela Cruz", contact: "ramon.delacruz@yahoo.com", totalBookings: 3, lifetimeSpend: 298500, tier: "Gold", lastEvent: "Christening — Mar 2026" },
-  { id: "CUS-104", name: "Antonio Reyes", contact: "tonyreyes@outlook.com", totalBookings: 8, lifetimeSpend: 1150000, tier: "Platinum", lastEvent: "Corporate Gala — Jul 2026" },
-  { id: "CUS-105", name: "Liza Bautista", contact: "liza.b@gmail.com", totalBookings: 2, lifetimeSpend: 142000, tier: "Silver", lastEvent: "Birthday Party — May 2026" },
-  { id: "CUS-106", name: "Carlo Mendoza", contact: "carlo.mendoza@gmail.com", totalBookings: 5, lifetimeSpend: 604000, tier: "Gold", lastEvent: "Fiesta Reunion — Jul 2026" },
-  { id: "CUS-107", name: "Grace Villanueva", contact: "gvillanueva@gmail.com", totalBookings: 1, lifetimeSpend: 68000, tier: "Silver", lastEvent: "Christening — Feb 2026" },
-  { id: "CUS-108", name: "Angelica Ramos", contact: "angie.ramos@gmail.com", totalBookings: 1, lifetimeSpend: 0, tier: "Silver", lastEvent: "Inquiry only" },
-];
 
 // ---------- Menu / Packages, Dishes, Grazing, Catering & Packed Meals ----------
 // Moved to lib/menu/dummy-catalog.ts (used as the price basis for the Owner

@@ -1,8 +1,9 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { logActivity } from "@/lib/activity-log/data";
 import { formatPeso } from "@/lib/format";
 import { BRANCHES } from "@/lib/mt/branches";
-import type { Expense, ExpenseStatus, NewExpense } from "./types";
+import type { Expense, ExpensePatch, ExpenseStatus, NewExpense } from "./types";
 
 type Row = {
   id: string;
@@ -13,9 +14,10 @@ type Row = {
   amount: number;
   status: ExpenseStatus;
   notes: string;
+  logged_by: string;
 };
 
-const COLUMNS = "id, expense_date, branch, category, vendor, amount, status, notes";
+const COLUMNS = "id, expense_date, branch, category, vendor, amount, status, notes, logged_by";
 
 function branchLabel(id: string): string {
   return BRANCHES.find((b) => b.id === id)?.name ?? (id || "—");
@@ -31,6 +33,7 @@ function rowToExpense(row: Row): Expense {
     amount: row.amount,
     status: row.status,
     notes: row.notes,
+    loggedBy: row.logged_by,
   };
 }
 
@@ -43,6 +46,7 @@ export async function getExpenses(): Promise<Expense[]> {
 
 export async function createExpense(expense: NewExpense): Promise<Expense> {
   const supabase = createSupabaseServerClient();
+  const user = await getCurrentUser();
   const { data, error } = await supabase
     .from("admin_expenses")
     .insert({
@@ -53,6 +57,7 @@ export async function createExpense(expense: NewExpense): Promise<Expense> {
       amount: expense.amount,
       status: expense.status,
       notes: expense.notes,
+      logged_by: user?.name ?? "Unknown",
     })
     .select(COLUMNS)
     .single();
@@ -79,6 +84,30 @@ export async function updateExpenseStatus(id: string, status: ExpenseStatus): Pr
     entity: "Expense",
     name: updated.vendor || updated.category || "Expense",
     details: `Status → ${status}`,
+  });
+  return updated;
+}
+
+export async function updateExpense(id: string, patch: ExpensePatch): Promise<Expense> {
+  const supabase = createSupabaseServerClient();
+  const dbPatch: Record<string, unknown> = {};
+  if (patch.date !== undefined) dbPatch.expense_date = patch.date;
+  if (patch.branch !== undefined) dbPatch.branch = patch.branch;
+  if (patch.category !== undefined) dbPatch.category = patch.category;
+  if (patch.vendor !== undefined) dbPatch.vendor = patch.vendor;
+  if (patch.amount !== undefined) dbPatch.amount = patch.amount;
+  if (patch.status !== undefined) dbPatch.status = patch.status;
+  if (patch.notes !== undefined) dbPatch.notes = patch.notes;
+
+  const { data, error } = await supabase.from("admin_expenses").update(dbPatch).eq("id", id).select(COLUMNS).single();
+  if (error) throw new Error(`Failed to update expense: ${error.message}`);
+  const updated = rowToExpense(data as Row);
+  await logActivity({
+    module: "Admin Expenses",
+    action: "UPDATE",
+    entity: "Expense",
+    name: updated.vendor || updated.category || "Expense",
+    details: `Edited · ${formatPeso(updated.amount)} · ${updated.category || "Uncategorized"}`,
   });
   return updated;
 }

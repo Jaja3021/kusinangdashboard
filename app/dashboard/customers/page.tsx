@@ -12,7 +12,7 @@ export default async function CustomersPage() {
 
   return (
     <div>
-      <PageHeader title="Customers" subtitle="Everyone who has booked with Kusinang Pamana." />
+      <PageHeader title="Customers" subtitle="People who have confirmed or paid at least once." />
       <CustomersClient orders={[...orders, ...mockOrders]} />
     </div>
   );
