@@ -27,8 +27,8 @@ export default function LoginPage() {
 
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
           Demo build — sign in with any active account from User Access (e.g.{" "}
-          <span className="font-medium">marites@kusinangpamana.ph</span>) using the password{" "}
-          <span className="font-medium">Kusinang2026!</span>
+          <span className="font-medium">demo@gmail.com</span>) using the password{" "}
+          <span className="font-medium">kusinang2026</span>
         </div>
       </div>
     </div>
