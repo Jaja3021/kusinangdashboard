@@ -6,7 +6,7 @@
 // The checkbox groups are derived from the same NAV config the sidebar
 // renders, so there's exactly one list of "pages" in the app.
 
-import { NAV } from "@/components/shell/nav";
+import { NAV, isNavPathActive } from "@/components/shell/nav";
 import type { CurrentUser } from "./current-user";
 import { hasFullAccess } from "./access";
 
@@ -30,13 +30,14 @@ export const PAGE_ACCESS_GROUPS: PageAccessGroup[] = NAV.map((group) => ({
 export const ALL_PAGE_PATHS = PAGE_ACCESS_GROUPS.flatMap((g) => g.paths.map((p) => p.path));
 
 /** Mirrors the sidebar's own active-link matching: "/dashboard" is exact,
- * everything else is a prefix match (so /dashboard/orders/123 is covered by
- * a grant of /dashboard/orders). User Access is always owner-only and never
- * granted through page_access, no matter what's stored there. */
+ * everything else matches itself or a real sub-route (so
+ * /dashboard/orders/123 is covered by a grant of /dashboard/orders, but a
+ * grant of /dashboard/kitchen does NOT also cover the sibling
+ * /dashboard/kitchen-today or /dashboard/kitchen-board). User Access is
+ * always owner-only and never granted through page_access, no matter what's
+ * stored there. */
 export function hasPageAccess(user: Pick<CurrentUser, "role" | "pageAccess">, path: string): boolean {
   if (hasFullAccess(user.role)) return true;
   if (path.startsWith(USER_ACCESS_PATH)) return false;
-  return user.pageAccess.some((granted) =>
-    granted === "/dashboard" ? path === granted : path.startsWith(granted),
-  );
+  return user.pageAccess.some((granted) => isNavPathActive(path, granted));
 }

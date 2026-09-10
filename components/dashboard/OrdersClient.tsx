@@ -9,8 +9,9 @@ import { useBranch } from "@/components/providers/BranchProvider";
 import { useMockOrderStatus } from "@/components/providers/MockOrderStatusProvider";
 import { getBranchById, ordersInBranch } from "@/lib/mt/branches";
 import { ORDER_STATUSES, type OrderRecord, type OrderStatus } from "@/lib/orders/types";
+import { groupOrdersByBatch, type OrderGroup } from "@/lib/orders/derived";
 import { isMockOrder } from "@/lib/orders/mock-celebrity-orders";
-import StatusSelect from "@/app/dashboard/orders/StatusSelect";
+import BatchStatusSelect from "@/app/dashboard/orders/BatchStatusSelect";
 
 export default function OrdersClient({ orders: initialOrders }: { orders: OrderRecord[] }) {
   const { selectedBranch } = useBranch();
@@ -28,9 +29,16 @@ export default function OrdersClient({ orders: initialOrders }: { orders: OrderR
     [initialOrders, getStatus],
   );
 
-  const columns: Column<OrderRecord>[] = useMemo(
+  const columns: Column<OrderGroup>[] = useMemo(
     () => [
-      { key: "orderNumber", header: "Order #", render: (r) => <span className="font-mono text-xs font-medium text-brand-900">{r.orderNumber}</span> },
+      { key: "orderNumber", header: "Order #", render: (r) => (
+        <div>
+          <span className="font-mono text-xs font-medium text-brand-900">{r.orderNumber}</span>
+          {r.allOrders.length > 1 && (
+            <div className="text-[10px] text-gray-400">+{r.allOrders.length - 1} more</div>
+          )}
+        </div>
+      ) },
       { key: "client", header: "Client", render: (r) => (
         <div>
           <div className="font-medium text-brand-900">{r.firstName} {r.lastName}</div>
@@ -66,7 +74,7 @@ export default function OrdersClient({ orders: initialOrders }: { orders: OrderR
               ))}
             </select>
           ) : (
-            <StatusSelect id={r.id} status={r.status} />
+            <BatchStatusSelect ids={r.allOrders.map((o) => o.id)} status={r.status} />
           ),
       },
     ],
@@ -74,6 +82,7 @@ export default function OrdersClient({ orders: initialOrders }: { orders: OrderR
   );
 
   const scoped = useMemo(() => ordersInBranch(orders, selectedBranch), [orders, selectedBranch]);
+  const groups = useMemo(() => groupOrdersByBatch(scoped), [scoped]);
 
   const pending = scoped.filter((o) => o.status === "Pending Confirmation").length;
   const preparing = scoped.filter((o) => o.status === "Preparing").length;
@@ -87,12 +96,12 @@ export default function OrdersClient({ orders: initialOrders }: { orders: OrderR
         <StatCard label="Completed" value={String(completed)} icon={<PackageCheck size={18} className="text-gold-600" />} />
       </div>
       <div className="mt-6">
-        {scoped.length === 0 ? (
+        {groups.length === 0 ? (
           <p className="rounded-lg border border-dashed border-gray-200 p-8 text-center text-sm text-gray-400">
             No orders yet.
           </p>
         ) : (
-          <DataTable columns={columns} rows={scoped} />
+          <DataTable columns={columns} rows={groups} />
         )}
       </div>
     </>

@@ -5,7 +5,9 @@ import {
   BarChart3,
   Calculator,
   CalendarDays,
+  CalendarClock,
   CheckSquare,
+  ClipboardCheck,
   ClipboardList,
   CreditCard,
   FileClock,
@@ -19,6 +21,7 @@ import {
   Package,
   Receipt,
   ShieldCheck,
+  ShoppingBasket,
   Star,
   TrendingUp,
   Users,
@@ -42,7 +45,10 @@ export const NAV: NavGroup[] = [
   {
     label: "OPERATIONS",
     items: [
-      { label: "Kitchen", path: "/dashboard/kitchen", icon: Kanban },
+      { label: "Kitchen Today", path: "/dashboard/kitchen-today", icon: CalendarClock },
+      { label: "Kitchen Board", path: "/dashboard/kitchen-board", icon: ClipboardCheck },
+      { label: "Market List", path: "/dashboard/market-list", icon: ShoppingBasket },
+      { label: "Kitchen (legacy)", path: "/dashboard/kitchen", icon: Kanban },
       { label: "Today's Orders", path: "/dashboard/orders", icon: ClipboardList },
       { label: "Bookings", path: "/dashboard/bookings", icon: CalendarDays },
       { label: "Staff Tasks", path: "/dashboard/staff-tasks", icon: CheckSquare },
@@ -86,3 +92,13 @@ const PRIMARY_PATHS = new Set(MOBILE_PRIMARY.map((i) => i.path));
 export const MOBILE_MORE: NavItem[] = NAV.flatMap((g) => g.items).filter(
   (item) => !PRIMARY_PATHS.has(item.path),
 );
+
+/** Whether `pathname` falls under a nav item's `path` — "/dashboard" only
+ * matches itself exactly; every other path matches itself or a real
+ * sub-route (`path + "/…"`), never a sibling that merely shares the prefix
+ * (e.g. "/dashboard/kitchen" must not also light up for
+ * "/dashboard/kitchen-today" or "/dashboard/kitchen-board"). */
+export function isNavPathActive(pathname: string, path: string): boolean {
+  if (path === "/dashboard") return pathname === path;
+  return pathname === path || pathname.startsWith(`${path}/`);
+}

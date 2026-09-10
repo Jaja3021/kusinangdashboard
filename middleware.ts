@@ -52,7 +52,15 @@ export async function middleware(request: NextRequest) {
 
     const fullAccess = profile?.role === "Owner" || profile?.role === "Developer";
     const pageAccess: string[] = profile?.page_access ?? [];
-    const allowed = fullAccess || pageAccess.some((granted: string) => pathname.startsWith(granted));
+    // Same boundary rule as lib/auth/page-access.ts's hasPageAccess (kept
+    // inline rather than imported so this Edge-runtime middleware doesn't
+    // pull in that module's client-side dependency chain): a grant matches
+    // itself or a real sub-route, never a sibling that merely shares the
+    // prefix (a grant of /dashboard/kitchen must not also cover
+    // /dashboard/kitchen-today or /dashboard/kitchen-board).
+    const allowed =
+      fullAccess ||
+      pageAccess.some((granted) => pathname === granted || pathname.startsWith(`${granted}/`));
 
     if (!allowed) {
       const dashboardUrl = request.nextUrl.clone();

@@ -214,6 +214,7 @@ function buildOrder(
     phone: `09${between(rng, 10, 39)} ${between(rng, 100, 999)} ${between(rng, 1000, 9999)}`,
     total,
     createdAt,
+    batchId: null,
   };
 }
 

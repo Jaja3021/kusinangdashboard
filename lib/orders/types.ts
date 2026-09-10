@@ -69,4 +69,10 @@ export type OrderRecord = {
   total: number;
 
   createdAt: string;
+
+  /** Links every package row placed from one multi-package "Review your
+   * quote" confirmation on herbies (see herbies' supabase/order-batches.sql
+   * and app/order/confirm/actions.ts) — null for an ordinary single-package
+   * order. Orders sharing a batchId are one checkout, not several. */
+  batchId: string | null;
 };

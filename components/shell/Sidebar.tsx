@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { NAV } from "./nav";
+import { NAV, isNavPathActive } from "./nav";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { hasPageAccess } from "@/lib/auth/page-access";
 
@@ -48,12 +49,7 @@ export default function Sidebar() {
     >
       <div className="flex items-center gap-3 border-b border-brand-800 px-4 py-4">
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/10 ring-1 ring-white/20">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={LOGO_IMAGE}
-            alt="Kusinang Pamana"
-            className="h-full w-full object-cover"
-          />
+          <Image src={LOGO_IMAGE} alt="Kusinang Pamana" width={36} height={36} className="h-full w-full object-cover" />
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
@@ -78,9 +74,7 @@ export default function Sidebar() {
               ))}
 
             {group.items.map(({ label, path, icon: Icon }) => {
-              // Overview owns "/dashboard" exactly; everything else prefix-matches.
-              const isActive =
-                path === "/dashboard" ? pathname === path : pathname.startsWith(path);
+              const isActive = isNavPathActive(pathname, path);
 
               return (
                 <Link
@@ -89,7 +83,7 @@ export default function Sidebar() {
                   title={collapsed ? label : undefined}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                     isActive
-                      ? "bg-gold-500 text-brand-950"
+                      ? "bg-gold-500 text-white"
                       : "text-brand-200 hover:bg-brand-800 hover:text-white"
                   }`}
                 >

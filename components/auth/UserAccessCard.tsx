@@ -41,7 +41,7 @@ export default function UserAccessCard({
     >
       <div
         className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
-          highlight ? "bg-gold-500 text-brand-950" : "bg-sky-500 text-white"
+          highlight ? "bg-gold-500 text-white" : "bg-sky-700 text-white"
         }`}
       >
         {initial}

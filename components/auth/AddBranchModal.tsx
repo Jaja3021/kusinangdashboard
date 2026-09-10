@@ -113,7 +113,7 @@ export default function AddBranchModal({ onClose }: { onClose: () => void }) {
           <button
             type="submit"
             disabled={submitting}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-brand-950 transition-colors hover:bg-gold-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gold-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting && <Loader2 size={15} className="animate-spin" />}
             Add Branch

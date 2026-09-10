@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MoreHorizontal } from "lucide-react";
 import Modal from "@/components/ui/Modal";
-import { MOBILE_MORE, MOBILE_PRIMARY } from "./nav";
+import { MOBILE_MORE, MOBILE_PRIMARY, isNavPathActive } from "./nav";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { hasPageAccess } from "@/lib/auth/page-access";
 
@@ -14,8 +14,7 @@ export default function MobileNav() {
   const { user } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const isActive = (path: string) =>
-    path === "/dashboard" ? pathname === path : pathname.startsWith(path);
+  const isActive = (path: string) => isNavPathActive(pathname, path);
 
   const visiblePrimary = MOBILE_PRIMARY.filter((item) => hasPageAccess(user, item.path));
   const visibleMore = MOBILE_MORE.filter((item) => hasPageAccess(user, item.path));

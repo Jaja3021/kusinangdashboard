@@ -74,12 +74,19 @@ function fromMenuSnapshot(value: unknown): DishLine[] {
 
 /** Best-effort dish list — the real `orders` row shapes `cart`/`packed_meal_cart`/
  * `selected_dishes` differently per order type, so every source is tried in
- * order of specificity and the first one with any lines wins. */
-function parseDishes(row: OrderRow): DishLine[] {
-  const sources = [row.cart, row.packed_meal_cart, row.selected_dishes, row.menu_snapshot];
+ * order of specificity and the first one with any lines wins. Exported so any
+ * other order view (e.g. the Orders page's order-detail slip) can build the
+ * same dish list without re-deriving this parsing. */
+export function parseDishes(sources: {
+  cart: unknown;
+  packedMealCart: unknown;
+  selectedDishes: unknown;
+  menuSnapshot: unknown;
+}): DishLine[] {
+  const values = [sources.cart, sources.packedMealCart, sources.selectedDishes, sources.menuSnapshot];
   const parsers = [fromArray, fromArray, fromSelectedDishes, fromMenuSnapshot];
-  for (let i = 0; i < sources.length; i++) {
-    const lines = parsers[i](sources[i]);
+  for (let i = 0; i < values.length; i++) {
+    const lines = parsers[i](values[i]);
     if (lines.length > 0) return lines;
   }
   return [];
@@ -98,7 +105,12 @@ function rowToKitchenOrder(row: OrderRow): KitchenOrder {
     branch: row.branch,
     deliveryMethod: row.delivery_method,
     instructions: row.instructions,
-    dishes: parseDishes(row),
+    dishes: parseDishes({
+      cart: row.cart,
+      packedMealCart: row.packed_meal_cart,
+      selectedDishes: row.selected_dishes,
+      menuSnapshot: row.menu_snapshot,
+    }),
     status: row.status as OrderStatus,
   };
 }

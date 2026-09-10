@@ -99,7 +99,7 @@ export default function AddUserForm() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex items-center gap-2 rounded-lg bg-gold-500 px-4 py-2.5 text-sm font-semibold text-brand-950 transition-colors hover:bg-gold-600"
+        className="inline-flex items-center gap-2 rounded-lg bg-gold-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gold-600"
       >
         <UserPlus size={15} />
         Add User
@@ -133,7 +133,7 @@ export default function AddUserForm() {
               <button
                 type="button"
                 onClick={close}
-                className="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-brand-950 transition-colors hover:bg-gold-600"
+                className="flex-1 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gold-600"
               >
                 Done
               </button>
@@ -158,7 +158,7 @@ export default function AddUserForm() {
                 id="new-email"
                 type="email"
                 required
-                placeholder="e.g. maria@spandis.com"
+                placeholder="e.g. maria@kusinang.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className={inputClass}
@@ -221,7 +221,7 @@ export default function AddUserForm() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-brand-950 transition-colors hover:bg-gold-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gold-500 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gold-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting && <Loader2 size={15} className="animate-spin" />}
                 Create User

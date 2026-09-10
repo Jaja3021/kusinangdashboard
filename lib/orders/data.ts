@@ -21,10 +21,11 @@ type OrderRow = {
   phone: string;
   total: number;
   created_at: string;
+  batch_id: string | null;
 };
 
 const ORDER_COLUMNS =
-  "id, order_number, status, payment_status, package_name, quantity_label, pax, event_type, event_date, event_time, venue, branch, first_name, last_name, email, phone, total, created_at";
+  "id, order_number, status, payment_status, package_name, quantity_label, pax, event_type, event_date, event_time, venue, branch, first_name, last_name, email, phone, total, created_at, batch_id";
 
 function rowToOrder(row: OrderRow): OrderRecord {
   return {
@@ -46,6 +47,7 @@ function rowToOrder(row: OrderRow): OrderRecord {
     phone: row.phone,
     total: row.total,
     createdAt: row.created_at,
+    batchId: row.batch_id,
   };
 }
 
@@ -106,6 +108,9 @@ export type OrderWithMenu = OrderRecord & {
   rushFee: number;
   depositAmount: number;
   amountPaid: number;
+  deliveryMethod: string | null;
+  instructions: string | null;
+  address: string | null;
 };
 
 type OrderWithMenuRow = OrderRow & {
@@ -122,11 +127,14 @@ type OrderWithMenuRow = OrderRow & {
   rush_fee: number;
   deposit_amount: number;
   amount_paid: number;
+  delivery_method: string | null;
+  instructions: string | null;
+  address: string | null;
 };
 
 const ORDER_WITH_MENU_COLUMNS =
   `${ORDER_COLUMNS}, servers, package_slug, menu_id, menu_name, menu_snapshot, cart, packed_meal_cart, ` +
-  "selected_dishes, subtotal, delivery_fee, rush_fee, deposit_amount, amount_paid";
+  "selected_dishes, subtotal, delivery_fee, rush_fee, deposit_amount, amount_paid, delivery_method, instructions, address";
 
 function rowToOrderWithMenu(row: OrderWithMenuRow): OrderWithMenu {
   return {
@@ -144,6 +152,9 @@ function rowToOrderWithMenu(row: OrderWithMenuRow): OrderWithMenu {
     rushFee: row.rush_fee,
     depositAmount: row.deposit_amount,
     amountPaid: row.amount_paid,
+    deliveryMethod: row.delivery_method,
+    instructions: row.instructions,
+    address: row.address,
   };
 }
 
@@ -154,6 +165,38 @@ export async function getOrderWithMenuById(id: string): Promise<OrderWithMenu | 
   const { data, error } = await supabase.from("orders").select(ORDER_WITH_MENU_COLUMNS).eq("id", id).maybeSingle();
   if (error) throw new Error(`Failed to load order: ${error.message}`);
   return data ? rowToOrderWithMenu(data as unknown as OrderWithMenuRow) : null;
+}
+
+/** Every order (any status) whose EVENT falls on one `YYYY-MM-DD` day, with
+ * the full menu/pricing shape — what Kitchen Today, Kitchen Board, and
+ * Market List all build their per-day views from. Cancelled orders are kept
+ * (same reasoning as getOrdersInRange) so those pages can call it out rather
+ * than silently drop it. */
+export async function getOrdersWithMenuForDate(date: string): Promise<OrderWithMenu[]> {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("orders")
+    .select(ORDER_WITH_MENU_COLUMNS)
+    .eq("event_date", date)
+    .order("event_time", { ascending: true });
+  if (error) throw new Error(`Failed to load orders for ${date}: ${error.message}`);
+  return (data as unknown as OrderWithMenuRow[]).map(rowToOrderWithMenu);
+}
+
+/** Deletes one order outright — for cleaning up duplicate/test bookings from
+ * the dashboard. change_requests, kitchen_stages, and inventory_reservations
+ * all reference orders with `on delete cascade` (see their .sql files), so
+ * deleting the order clears those automatically. payments has no such FK
+ * guarantee in this repo (its schema lives in the herbies project), so it's
+ * deleted explicitly first — mirrors scripts/clear-orders.mjs. */
+export async function deleteOrder(id: string): Promise<void> {
+  const supabase = createSupabaseServerClient();
+
+  const { error: paymentsError } = await supabase.from("payments").delete().eq("order_id", id);
+  if (paymentsError) throw new Error(`Failed to delete payments: ${paymentsError.message}`);
+
+  const { error: orderError } = await supabase.from("orders").delete().eq("id", id);
+  if (orderError) throw new Error(`Failed to delete order: ${orderError.message}`);
 }
 
 export async function updateOrderStatus(id: string, status: OrderStatus): Promise<void> {

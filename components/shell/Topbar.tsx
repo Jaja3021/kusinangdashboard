@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Search, Zap } from "lucide-react";
 import Modal from "@/components/ui/Modal";
@@ -65,8 +66,7 @@ export default function Topbar({ orders }: { orders: OrderRecord[] }) {
       {/* Mobile: brand + the two scope controls, since there's no sidebar. */}
       <div className="flex min-w-0 flex-1 items-center gap-2 md:hidden">
         <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-brand-900">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={LOGO_IMAGE} alt="" className="h-full w-full object-cover" />
+          <Image src={LOGO_IMAGE} alt="" width={28} height={28} className="h-full w-full object-cover" />
         </div>
         <div className="flex-shrink-0">
           <DateRangePicker compact />

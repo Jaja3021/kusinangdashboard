@@ -25,3 +25,22 @@
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Event Production Sheet — print only the sheet, not the rest of the page
+   (dashboard chrome, modal backdrop, other UI). position:fixed lifts it clear
+   of the modal's scrolling/clipping ancestor so nothing gets cut off. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #production-sheet-print,
+  #production-sheet-print * {
+    visibility: visible;
+  }
+  #production-sheet-print {
+    position: fixed;
+    inset: 0;
+    max-height: none;
+    overflow: visible;
+  }
+}

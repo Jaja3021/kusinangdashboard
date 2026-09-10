@@ -99,6 +99,37 @@ export function toBookingRows(orders: OrderRecord[]): Booking[] {
  * doesn't qualify them as an actual customer yet. */
 const CONFIRMED_OR_BETTER: OrderStatus[] = ["Confirmed", "Preparing", "Cooking", "Ready for Delivery", "Completed"];
 
+export type OrderGroup = OrderRecord & { allOrders: OrderRecord[] };
+
+/** Sibling of toCustomerRows() for the Orders table: groups by checkout
+ * (herbies' orders.batch_id — every package added to one "Review your quote"
+ * before confirming shares one batch_id, null for an ordinary single-package
+ * order) but keeps every field of the most-recent order (no
+ * summarizing/filtering) so existing column renderers work unchanged, plus
+ * the full per-checkout order list for a drill-down view. An order with no
+ * batch_id is grouped under its own id, so it renders as its own one-row
+ * "batch" of one. */
+export function groupOrdersByBatch(orders: OrderRecord[]): OrderGroup[] {
+  const groups = new Map<string, OrderRecord[]>();
+  for (const o of orders) {
+    const key = o.batchId ?? o.id;
+    const group = groups.get(key);
+    if (group) group.push(o);
+    else groups.set(key, [o]);
+  }
+
+  // Picked by createdAt, not array position — a batch's packages can be
+  // inserted in any order relative to the overall (possibly re-sorted) input
+  // list, so the first entry per group isn't reliably the most recent one.
+  return [...groups.values()].map((group) => {
+    const mostRecent = group.reduce((latest, o) =>
+      Date.parse(o.createdAt) > Date.parse(latest.createdAt) ? o : latest,
+    );
+    const allOrders = [...group].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    return { ...mostRecent, allOrders };
+  });
+}
+
 export function toCustomerRows(orders: OrderRecord[]): Customer[] {
   const groups = new Map<string, OrderRecord[]>();
   for (const o of orders) {

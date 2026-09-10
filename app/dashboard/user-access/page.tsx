@@ -7,6 +7,8 @@ import BranchManagementCard from "@/components/auth/BranchManagementCard";
 import AvailablePagesCard from "@/components/auth/AvailablePagesCard";
 import { getAllUsers, UserAccount } from "@/lib/auth/user-store";
 
+export const dynamic = "force-dynamic";
+
 const roleTone: Record<UserAccount["role"], BadgeTone> = {
   Owner: "gold",
   Developer: "blue",

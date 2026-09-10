@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import LoginForm from "@/components/auth/LoginForm";
 
 const LOGO_IMAGE =
@@ -14,8 +15,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-brand-900 ring-1 ring-brand-900/10">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={LOGO_IMAGE} alt="" className="h-full w-full object-cover" />
+            <Image src={LOGO_IMAGE} alt="" width={48} height={48} priority className="h-full w-full object-cover" />
           </div>
           <h1 className="font-display text-xl font-bold text-brand-900">Kusinang Pamana</h1>
           <p className="text-sm text-gray-500">Sign in to the business dashboard</p>
@@ -27,7 +27,7 @@ export default function LoginPage() {
 
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
           Demo build — sign in with any active account from User Access (e.g.{" "}
-          <span className="font-medium">demo@gmail.com</span>) using the password{" "}
+          <span className="font-medium">Demo Staff — demo@gmail.com</span>) using the password{" "}
           <span className="font-medium">kusinang2026</span>
         </div>
       </div>

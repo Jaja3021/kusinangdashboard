@@ -12,7 +12,7 @@ export default function AddBranchButton() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-gold-500 px-3 py-2 text-sm font-semibold text-brand-950 transition-colors hover:bg-gold-600"
+        className="inline-flex items-center gap-1.5 rounded-lg bg-gold-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-gold-600"
       >
         <Plus size={14} /> Add Branch
       </button>

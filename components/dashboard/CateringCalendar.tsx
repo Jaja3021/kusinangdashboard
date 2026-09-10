@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  ArrowLeft,
   Ban,
   CalendarDays,
   ChevronLeft,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
+import EventProductionSheetModal from "@/components/dashboard/EventProductionSheetModal";
 import { useBranch } from "@/components/providers/BranchProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { hasFullAccess } from "@/lib/auth/access";
@@ -34,6 +36,7 @@ import {
 import { buildCalendarDays } from "@/lib/calendar/calc";
 import { DAY_STATUS_EMOJI, DAY_STATUS_LABEL, type CalendarCapacity, type CalendarDay, type DayStatus } from "@/lib/calendar/types";
 import { ORDER_STATUSES, PAYMENT_STATUSES, type OrderRecord, type OrderStatus, type PaymentStatus } from "@/lib/orders/types";
+import { groupOrdersByBatch } from "@/lib/orders/derived";
 import type { BlockedDate } from "@/lib/bookings/blocked-dates";
 import { blockDateAction, unblockDateAction, updateCalendarCapacityAction } from "@/app/dashboard/calendar/actions";
 
@@ -124,6 +127,7 @@ export default function CateringCalendar({
   const [closingFormOpen, setClosingFormOpen] = useState(false);
   const [localBlockedDates, setLocalBlockedDates] = useState(blockedDates);
   const [localCapacities, setLocalCapacities] = useState(capacities);
+  const [sheetOrders, setSheetOrders] = useState<OrderRecord[] | null>(null);
 
   const branchId = selectedBranch === ALL_BRANCHES ? null : (getBranchByName(selectedBranch)?.id ?? null);
   const canManageCalendar = can(user.role, "manage:calendar") && (hasFullAccess(user.role) || user.canCloseDates);
@@ -138,6 +142,17 @@ export default function CateringCalendar({
     () => new Set(scopedOrders.filter((o) => matchesFilters(o, filters)).map((o) => o.id)),
     [scopedOrders, filters],
   );
+
+  // Maps an order id to every sibling package from the same checkout
+  // (batch_id) — the production sheet shows the whole checkout, not just the
+  // one calendar event that was clicked.
+  const batchByOrderId = useMemo(() => {
+    const map = new Map<string, OrderRecord[]>();
+    for (const group of groupOrdersByBatch(scopedOrders)) {
+      for (const o of group.allOrders) map.set(o.id, group.allOrders);
+    }
+    return map;
+  }, [scopedOrders]);
 
   const eventTypeOptions = useMemo(() => {
     const set = new Set(scopedOrders.map((o) => o.eventType || "Other"));
@@ -225,6 +240,12 @@ export default function CateringCalendar({
       {/* Header: view switcher + navigation */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3">
         <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard/bookings"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-gray-50"
+          >
+            <ArrowLeft size={14} /> Bookings
+          </Link>
           <button type="button" onClick={goPrev} aria-label="Previous" className="rounded-lg border border-gray-200 p-1.5 text-slate-500 hover:bg-gray-50">
             <ChevronLeft size={16} />
           </button>
@@ -325,7 +346,11 @@ export default function CateringCalendar({
         <WeekGrid referenceDate={referenceDate} days={days} todayISO={todayISO} filteredOrderIds={filteredOrderIds} onSelect={setSelectedDate} />
       )}
       {view === "day" && (
-        <DayAgenda day={days.get(referenceDate)} filteredOrderIds={filteredOrderIds} />
+        <DayAgenda
+          day={days.get(referenceDate)}
+          filteredOrderIds={filteredOrderIds}
+          onViewOrder={(order) => setSheetOrders(batchByOrderId.get(order.id) ?? [order])}
+        />
       )}
 
       {/* Legend */}
@@ -425,10 +450,15 @@ export default function CateringCalendar({
                         filteredOrderIds.has(order.id) ? "" : "opacity-40"
                       }`}
                     >
-                      <div className="flex min-w-0 items-start gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setSheetOrders(batchByOrderId.get(order.id) ?? [order])}
+                        className="flex min-w-0 items-start gap-2.5 text-left"
+                        title="Open production sheet"
+                      >
                         <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${branch?.dot ?? "bg-slate-300"}`} />
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-brand-900">
+                          <p className="truncate font-semibold text-brand-900 hover:underline">
                             {order.firstName} {order.lastName}
                           </p>
                           <p className="truncate text-xs text-slate-400">
@@ -439,16 +469,20 @@ export default function CateringCalendar({
                           <p className={`text-xs font-semibold ${payment.tone}`}>{payment.label}</p>
                           <p className="truncate text-[10px] font-medium uppercase tracking-wide text-slate-400">{order.packageName}</p>
                         </div>
-                      </div>
+                      </button>
                       <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
                         <span className="font-semibold text-brand-900">₱{order.total.toLocaleString()}</span>
                         <div className="flex items-center gap-1.5">
                           {isRush && <span className="text-xs font-semibold text-orange-600">🟠</span>}
                           <StatusBadge status={order.status} />
                         </div>
-                        <Link href={`/dashboard/orders/${order.id}`} className="rounded-lg border border-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gold-600 hover:bg-gold-50">
+                        <button
+                          type="button"
+                          onClick={() => setSheetOrders(batchByOrderId.get(order.id) ?? [order])}
+                          className="rounded-lg border border-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gold-600 hover:bg-gold-50"
+                        >
                           View Order
-                        </Link>
+                        </button>
                       </div>
                     </li>
                   );
@@ -468,6 +502,8 @@ export default function CateringCalendar({
           ))}
         </div>
       </Modal>
+
+      {sheetOrders && <EventProductionSheetModal orders={sheetOrders} onClose={() => setSheetOrders(null)} />}
     </div>
   );
 }
@@ -649,7 +685,15 @@ function WeekGrid({
   );
 }
 
-function DayAgenda({ day, filteredOrderIds }: { day: CalendarDay | undefined; filteredOrderIds: Set<string> }) {
+function DayAgenda({
+  day,
+  filteredOrderIds,
+  onViewOrder,
+}: {
+  day: CalendarDay | undefined;
+  filteredOrderIds: Set<string>;
+  onViewOrder: (order: OrderRecord) => void;
+}) {
   if (!day) return null;
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4">
@@ -674,9 +718,13 @@ function DayAgenda({ day, filteredOrderIds }: { day: CalendarDay | undefined; fi
               <div className="flex flex-shrink-0 items-center gap-2">
                 {isRush && <span className="text-xs font-semibold text-orange-600">🟠 RUSH</span>}
                 <StatusBadge status={order.status} />
-                <Link href={`/dashboard/orders/${order.id}`} className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gold-600 hover:bg-gold-50">
+                <button
+                  type="button"
+                  onClick={() => onViewOrder(order)}
+                  className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gold-600 hover:bg-gold-50"
+                >
                   View Order
-                </Link>
+                </button>
               </div>
             </li>
           ))}
