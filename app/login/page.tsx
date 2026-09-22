@@ -24,12 +24,6 @@ export default function LoginPage() {
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <LoginForm />
         </div>
-
-        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
-          Demo build — sign in with any active account from User Access (e.g.{" "}
-          <span className="font-medium">Demo Staff — demo@gmail.com</span>) using the password{" "}
-          <span className="font-medium">kusinang2026</span>
-        </div>
       </div>
     </div>
   );

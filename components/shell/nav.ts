@@ -48,7 +48,6 @@ export const NAV: NavGroup[] = [
       { label: "Kitchen Today", path: "/dashboard/kitchen-today", icon: CalendarClock },
       { label: "Kitchen Board", path: "/dashboard/kitchen-board", icon: ClipboardCheck },
       { label: "Market List", path: "/dashboard/market-list", icon: ShoppingBasket },
-      { label: "Kitchen (legacy)", path: "/dashboard/kitchen", icon: Kanban },
       { label: "Today's Orders", path: "/dashboard/orders", icon: ClipboardList },
       { label: "Bookings", path: "/dashboard/bookings", icon: CalendarDays },
       { label: "Staff Tasks", path: "/dashboard/staff-tasks", icon: CheckSquare },

@@ -4,6 +4,9 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Lock, Mail } from "lucide-react";
 
+const DEMO_EMAIL = "demo@gmail.com";
+const DEMO_PASSWORD = "kusinang2026";
+
 export default function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -11,8 +14,7 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function login(loginEmail: string, loginPassword: string) {
     setError(null);
     setSubmitting(true);
 
@@ -20,7 +22,7 @@ export default function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
       });
 
       if (!res.ok) {
@@ -36,6 +38,17 @@ export default function LoginForm() {
       setError("Something went wrong. Please try again.");
       setSubmitting(false);
     }
+  }
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    login(email, password);
+  }
+
+  function onDemoLogin() {
+    setEmail(DEMO_EMAIL);
+    setPassword(DEMO_PASSWORD);
+    login(DEMO_EMAIL, DEMO_PASSWORD);
   }
 
   return (
@@ -87,6 +100,21 @@ export default function LoginForm() {
       >
         {submitting && <Loader2 size={15} className="animate-spin" />}
         Sign In
+      </button>
+
+      <div className="relative py-1 text-center">
+        <span className="relative bg-white px-2 text-xs uppercase tracking-wide text-gray-400">or</span>
+        <div className="absolute inset-x-0 top-1/2 -z-10 h-px -translate-y-1/2 bg-gray-200" />
+      </div>
+
+      <button
+        type="button"
+        onClick={onDemoLogin}
+        disabled={submitting}
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-gold-300 bg-gold-50 py-2.5 text-sm font-semibold text-gold-700 transition-colors hover:bg-gold-100 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {submitting && <Loader2 size={15} className="animate-spin" />}
+        Continue as Demo Staff
       </button>
     </form>
   );

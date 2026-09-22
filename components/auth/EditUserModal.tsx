@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import AccessFields from "./AccessFields";
 import { CREATABLE_ROLES, type CreatableRole } from "@/lib/auth/roles";
+import { ALL_PAGE_PATHS } from "@/lib/auth/page-access";
 import type { UserAccount } from "@/lib/auth/user-store";
 
 export default function EditUserModal({ user, onClose }: { user: UserAccount; onClose: () => void }) {
@@ -14,7 +15,9 @@ export default function EditUserModal({ user, onClose }: { user: UserAccount; on
   const [role, setRole] = useState<CreatableRole>(user.role as CreatableRole);
   const [canCloseDates, setCanCloseDates] = useState(user.canCloseDates);
   const [branches, setBranches] = useState<string[]>(user.branches);
-  const [pageAccess, setPageAccess] = useState<string[]>(user.pageAccess);
+  const [pageAccess, setPageAccess] = useState<string[]>(
+    user.pageAccess.filter((p) => ALL_PAGE_PATHS.includes(p)),
+  );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 

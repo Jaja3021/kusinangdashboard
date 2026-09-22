@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   const role = typeof body?.role === "string" ? body.role : "";
   const branches = Array.isArray(body?.branches) ? body.branches.filter((b: unknown) => typeof b === "string") : [];
   const pageAccess = Array.isArray(body?.pageAccess)
-    ? body.pageAccess.filter((p: unknown) => typeof p === "string")
+    ? body.pageAccess.filter((p: unknown) => typeof p === "string" && ALL_PAGE_PATHS.includes(p))
     : [];
   const canCloseDates = body?.canCloseDates === true;
   const password = typeof body?.password === "string" ? body.password : "";
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   if (branches.length === 0 || !branches.every((b: string) => branchNames.includes(b))) {
     return NextResponse.json({ error: "Select at least one valid branch." }, { status: 400 });
   }
-  if (pageAccess.length === 0 || !pageAccess.every((p: string) => ALL_PAGE_PATHS.includes(p))) {
+  if (pageAccess.length === 0) {
     return NextResponse.json({ error: "Select at least one valid page." }, { status: 400 });
   }
 
